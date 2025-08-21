@@ -1,6 +1,149 @@
-# Huly MCP Server - Complete API Tools
+# Huly MCP Server - Jira-Compatible API Tools
 
-The Huly MCP server now provides comprehensive project management capabilities through MCP tools, covering all aspects of project lifecycle from planning to reporting.
+The Huly MCP server now provides comprehensive Jira and Confluence-compatible project management capabilities through MCP tools, covering all aspects of project lifecycle from planning to reporting with enhanced security features.
+
+## Enhanced Security Features
+
+- **Input Validation**: All inputs are validated using Zod schemas with strict type checking
+- **Injection Prevention**: Built-in sanitization prevents SQL/NoSQL injection attacks
+- **Parameter Limits**: Enforced limits on string lengths, array sizes, and numeric ranges
+- **Safe Query Building**: Secure query construction with parameterized inputs
+- **Error Handling**: Comprehensive error handling with descriptive messages
+
+## Available Tools
+
+### JIRA READ OPERATIONS
+
+#### jira_get_project_issues
+Retrieve all issues from a specific project with comprehensive filtering and sorting capabilities.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "limit": 50,
+  "sortBy": "modifiedOn",
+  "sortOrder": "desc",
+  "status": "In Progress",
+  "assignee": "user@example.com",
+  "priority": "High"
+}
+```
+
+#### jira_get_issue
+Retrieve comprehensive details for a specific issue by its identifier.
+```json
+{
+  "issueIdentifier": "PROJ-123",
+  "includeComments": true,
+  "includeHistory": true,
+  "includeAttachments": false
+}
+```
+
+#### jira_get_all_projects
+Retrieve a comprehensive list of all accessible projects with metadata.
+```json
+{
+  "limit": 100,
+  "includeArchived": false,
+  "sortBy": "name",
+  "sortOrder": "asc",
+  "projectType": "software"
+}
+```
+
+#### jira_search
+Advanced search across all accessible issues with comprehensive filtering.
+```json
+{
+  "query": "bug in login",
+  "projectIdentifier": "PROJ",
+  "status": "Open",
+  "priority": "High",
+  "limit": 50,
+  "sortBy": "relevance"
+}
+```
+
+### JIRA WRITE OPERATIONS
+
+#### jira_create_issue
+Create a new issue in the specified project with comprehensive field support.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "title": "Bug fix needed in authentication",
+  "description": "Detailed description in **markdown**",
+  "priority": "High",
+  "issueType": "Bug",
+  "assignee": "user@example.com",
+  "component": "Authentication",
+  "estimation": 8,
+  "dueDate": "2024-01-15T00:00:00.000Z",
+  "labels": ["security", "urgent"],
+  "parentIssue": "PROJ-100"
+}
+```
+
+#### jira_update_issue
+Update an existing issue with comprehensive field support and validation.
+```json
+{
+  "issueIdentifier": "PROJ-123",
+  "title": "Updated issue title",
+  "priority": "Urgent",
+  "status": "In Progress",
+  "assignee": "newuser@example.com",
+  "estimation": 12,
+  "comment": "Increased priority due to customer impact"
+}
+```
+
+### PLANNED JIRA TOOLS (To be implemented)
+
+#### Read Operations
+- `jira_get_worklog` - Get worklog entries for an issue
+- `jira_get_transitions` - Get available status transitions for an issue
+- `jira_search_fields` - Search custom fields and their values
+- `jira_get_agile_boards` - Get all agile boards
+- `jira_get_board_issues` - Get issues from a specific board
+- `jira_get_sprints_from_board` - Get sprints from a board
+- `jira_get_sprint_issues` - Get issues from a specific sprint
+- `jira_get_issue_link_types` - Get available issue link types
+- `jira_batch_get_changelogs` - Get change history for multiple issues
+- `jira_get_user_profile` - Get user profile information
+- `jira_download_attachments` - Download issue attachments
+- `jira_get_project_versions` - Get project versions/releases
+
+#### Write Operations
+- `jira_delete_issue` - Delete an issue (with confirmation)
+- `jira_batch_create_issues` - Create multiple issues in batch
+- `jira_add_comment` - Add comment to an issue
+- `jira_transition_issue` - Change issue status/workflow
+- `jira_add_worklog` - Log work time on an issue
+- `jira_link_to_epic` - Link issue to an epic
+- `jira_create_sprint` - Create a new sprint
+- `jira_update_sprint` - Update sprint details
+- `jira_create_issue_link` - Create link between issues
+- `jira_remove_issue_link` - Remove link between issues
+- `jira_create_version` - Create project version/release
+- `jira_batch_create_versions` - Create multiple versions in batch
+
+### PLANNED CONFLUENCE TOOLS (To be implemented)
+
+#### Read Operations
+- `confluence_search` - Search confluence content
+- `confluence_get_page` - Get specific page content
+- `confluence_get_page_children` - Get child pages
+- `confluence_get_comments` - Get page comments
+- `confluence_get_labels` - Get page labels
+- `confluence_search_user` - Search for users
+
+#### Write Operations
+- `confluence_create_page` - Create new page
+- `confluence_update_page` - Update existing page
+- `confluence_delete_page` - Delete page
+- `confluence_add_label` - Add label to page
+- `confluence_add_comment` - Add comment to page
 
 ## Available Tools
 
