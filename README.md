@@ -64,6 +64,28 @@ HULY_WORKSPACE=ws1
 # Option 1: Token-based authentication
 HULY_TOKEN=your_token_here
 
+## Authentication
+
+This project uses GitHub Packages for dependency management. To successfully download dependencies, you need to generate a GitHub personal access token and authenticate npm using that token.
+
+1. Generate a GitHub Token
+  - Log in to your GitHub account
+  - Go to Settings > Developer settings > Personal access tokens (https://github.com/settings/personal-access-tokens)
+  - Click "Generate new token"
+  - Select the required scopes (at least `read:packages`)
+  - Generate the token and copy it
+
+2. Authenticate with npm
+
+```bash
+npm login --registry=https://npm.pkg.github.com
+```
+
+When prompted, enter your GitHub username and use the generated token as your password. Use your GitHub email when asked for an email address.
+
+หมายเหตุ: ต้องทำขั้นตอนการยืนยันตัวตนนี้ถึงจะติดตั้ง dependencies ได้สำเร็จ
+
+
 # Option 2: Email/password authentication
 HULY_EMAIL=your_email@example.com
 HULY_PASSWORD=your_password

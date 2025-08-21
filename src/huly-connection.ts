@@ -1,36 +1,45 @@
-import { connect, Client as HulyClient, ConnectOptions } from '@hcengineering/api-client';
+import apiClientPkg from '@hcengineering/api-client';
+import type { PlatformClient, ConnectOptions } from '@hcengineering/api-client';
 import { HulyConfig, defaultConfig } from './config.js';
 
+// Extract connect function from CommonJS module
+const connect = (apiClientPkg as any).connect;
+
 export class HulyConnection {
-  private client: HulyClient | null = null;
+  private client: PlatformClient | null = null;
   private config: HulyConfig;
 
   constructor(config: HulyConfig) {
     this.config = { ...defaultConfig, ...config };
   }
 
-  async connect(): Promise<HulyClient> {
+  async connect(): Promise<PlatformClient> {
     if (this.client) {
       return this.client;
     }
 
-    const options: ConnectOptions = {
-      workspace: this.config.workspace,
-    };
-
-    // Add authentication options
+    // Create options based on authentication method
+    let options: ConnectOptions;
+    
     if (this.config.token) {
-      options.token = this.config.token;
+      options = {
+        workspace: this.config.workspace,
+        token: this.config.token
+      } as ConnectOptions;
     } else if (this.config.email && this.config.password) {
-      options.email = this.config.email;
-      options.password = this.config.password;
+      options = {
+        workspace: this.config.workspace,
+        email: this.config.email,
+        password: this.config.password
+      } as ConnectOptions;
     } else {
       throw new Error('Either token or email/password must be provided for Huly authentication');
     }
 
     try {
       this.client = await connect(this.config.url, options);
-      return this.client;
+      console.info('[HulyConnection] Connected to', this.config.url, 'workspace=', this.config.workspace);
+      return this.client!;
     } catch (error) {
       throw new Error(`Failed to connect to Huly: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -38,12 +47,13 @@ export class HulyConnection {
 
   async disconnect(): Promise<void> {
     if (this.client) {
-      await this.client.close();
-      this.client = null;
+  await this.client.close();
+  this.client = null;
+  console.info('[HulyConnection] Disconnected');
     }
   }
 
-  getClient(): HulyClient {
+  getClient(): PlatformClient {
     if (!this.client) {
       throw new Error('Not connected to Huly. Call connect() first.');
     }
@@ -52,5 +62,22 @@ export class HulyConnection {
 
   isConnected(): boolean {
     return this.client !== null;
+  }
+
+  /**
+   * Ping the server with a lightweight operation to verify the connection.
+   * Returns true when the client is connected and responds, false otherwise.
+   */
+  async ping(timeoutMs = 5000): Promise<boolean> {
+    if (!this.client) return false;
+    try {
+      // Use a lightweight call getModel() to verify connection
+      const p = Promise.resolve().then(() => { this.client!.getModel(); return true; });
+      const race = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs));
+      const res = await Promise.race([p.catch(() => false), race]);
+      return Boolean(res);
+    } catch (_e) {
+      return false;
+    }
   }
 }

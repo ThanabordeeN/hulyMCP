@@ -1,6 +1,6 @@
 {
   "name": "huly-mcp-server",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "MCP Server implementation for Huly Platform API",
   "main": "dist/index.js",
   "type": "module",
@@ -14,7 +14,7 @@
     "REAL_HULY_INTEGRATION.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc src/index.ts --outDir dist --moduleResolution bundler --target ES2022 --module ESNext --skipLibCheck --esModuleInterop --allowSyntheticDefaultImports --declaration --sourceMap",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "demo": "tsx test/demo.ts",

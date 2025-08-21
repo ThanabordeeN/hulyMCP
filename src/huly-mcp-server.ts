@@ -3,11 +3,27 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { HulyConnection } from "./huly-connection.js";
 import { HulyConfig } from "./config.js";
-import { SortingOrder, generateId, type Ref } from '@hcengineering/core';
-import core from '@hcengineering/core';
-import tracker, { type Issue, type Project, IssuePriority } from '@hcengineering/tracker';
-import task from '@hcengineering/task';
-import { makeRank } from '@hcengineering/rank';
+
+// CommonJS imports for Huly packages
+import corePkg from '@hcengineering/core';
+import trackerPkg from '@hcengineering/tracker';
+import taskPkg from '@hcengineering/task';
+import rankPkg from '@hcengineering/rank';
+
+// Extract named exports from CommonJS modules with type assertion
+const SortingOrder = (corePkg as any).SortingOrder;
+const generateId = (corePkg as any).generateId;
+const IssuePriority = (trackerPkg as any).IssuePriority;
+const makeRank = (rankPkg as any).makeRank;
+
+// Use default exports
+const core = (corePkg as any).default || corePkg;
+const tracker = (trackerPkg as any).default || trackerPkg;
+const task = (taskPkg as any).default || taskPkg;
+
+// Type-only imports
+import type { Ref, WithLookup } from '@hcengineering/core';
+import type { Issue, Project } from '@hcengineering/tracker';
 
 export class HulyMCPServer {
   private server: McpServer;
@@ -70,7 +86,7 @@ export class HulyMCPServer {
               limit,
               sort: { [sortField]: order }
             }
-          ) as Issue[];
+          ) as unknown as Issue[];
 
           const issueList = await Promise.all(issues.map(async (issue: Issue) => {
             const description = issue.description ? 
@@ -162,7 +178,7 @@ export class HulyMCPServer {
           );
 
           // Upload description if provided
-          let descriptionRef;
+          let descriptionRef: any = null;
           if (description) {
             descriptionRef = await client.uploadMarkup(
               tracker.class.Issue, 
@@ -174,10 +190,10 @@ export class HulyMCPServer {
           }
 
           // Map priority string to IssuePriority enum
-          const priorityMap: { [key: string]: IssuePriority } = {
+          const priorityMap: { [key: string]: any } = {
             'Urgent': IssuePriority.Urgent,
             'High': IssuePriority.High,
-            'Normal': IssuePriority.Normal,
+            'Normal': IssuePriority.Medium,
             'Low': IssuePriority.Low
           };
 
@@ -195,7 +211,7 @@ export class HulyMCPServer {
               number: sequence,
               kind: tracker.taskTypes.Issue,
               identifier: `${project.identifier}-${sequence}`,
-              priority: priorityMap[priority] || IssuePriority.Normal,
+              priority: priorityMap[priority] || IssuePriority.Medium,
               assignee: null,
               component: null,
               estimation: 0,
@@ -252,9 +268,9 @@ export class HulyMCPServer {
               limit,
               lookup: { type: task.class.ProjectType }
             }
-          ) as Project[];
+          ) as WithLookup<Project>[];
 
-          const projectList = projects.map((project: Project) => ({
+          const projectList = projects.map((project: WithLookup<Project>) => ({
             identifier: project.identifier,
             name: project.name,
             description: project.description,
@@ -324,8 +340,8 @@ export class HulyMCPServer {
                     `Estimation: ${issue.estimation}h\n` +
                     `Remaining Time: ${issue.remainingTime}h\n` +
                     `Reported Time: ${issue.reportedTime}h\n` +
-                    `Created: ${new Date(issue.createdOn).toISOString()}\n` +
-                    `Modified: ${new Date(issue.modifiedOn).toISOString()}\n\n` +
+                    `Created: ${issue.createdOn ? new Date(issue.createdOn).toISOString() : 'Unknown'}\n` +
+                    `Modified: ${issue.modifiedOn ? new Date(issue.modifiedOn).toISOString() : 'Unknown'}\n\n` +
                     `Description:\n${description}`
             }]
           };
@@ -337,6 +353,500 @@ export class HulyMCPServer {
         }
       }
     );
+
+    // Tool: Find One Document
+    this.server.registerTool(
+      "find-one",
+      {
+        title: "Find One Document",
+        description: "Find a single document by class and query criteria",
+        inputSchema: {
+          className: z.string().describe("Full class name (e.g., 'tracker.class.Issue', 'contact.class.Person')"),
+          query: z.record(z.any()).describe("Query criteria as JSON object"),
+          options: z.record(z.any()).optional().describe("Find options (limit, sort, lookup, projection)")
+        }
+      },
+      async ({ className, query, options }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          // Parse the class name to get the actual class reference
+          const classRef = this.parseClassName(className);
+          
+          const document = await client.findOne(classRef, query, options);
+          
+          return {
+            content: [{
+              type: "text",
+              text: document ? 
+                `Document found:\n${JSON.stringify(document, null, 2)}` :
+                "No document found matching the criteria"
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error finding document: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Find All Documents
+    this.server.registerTool(
+      "find-all",
+      {
+        title: "Find All Documents",
+        description: "Find multiple documents by class and query criteria",
+        inputSchema: {
+          className: z.string().describe("Full class name (e.g., 'tracker.class.Issue', 'contact.class.Person')"),
+          query: z.record(z.any()).describe("Query criteria as JSON object"),
+          options: z.record(z.any()).optional().describe("Find options (limit, sort, lookup, projection)")
+        }
+      },
+      async ({ className, query, options }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const classRef = this.parseClassName(className);
+          const documents = await client.findAll(classRef, query, options);
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Found ${documents.length} documents:\n${JSON.stringify(documents, null, 2)}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error finding documents: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Create Document
+    this.server.registerTool(
+      "create-doc",
+      {
+        title: "Create Document",
+        description: "Create a new document in the specified space",
+        inputSchema: {
+          className: z.string().describe("Full class name (e.g., 'contact.class.Person')"),
+          spaceName: z.string().describe("Space name (e.g., 'contact.space.Contacts')"),
+          attributes: z.record(z.any()).describe("Document attributes as JSON object"),
+          id: z.string().optional().describe("Optional custom ID for the document")
+        }
+      },
+      async ({ className, spaceName, attributes, id }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const classRef = this.parseClassName(className);
+          const spaceRef = this.parseClassName(spaceName);
+          const docId = id ? (id as any) : generateId();
+          
+          const createdId = await client.createDoc(classRef, spaceRef, attributes, docId);
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Document created successfully with ID: ${createdId}\nClass: ${className}\nSpace: ${spaceName}\nAttributes: ${JSON.stringify(attributes, null, 2)}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating document: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Update Document
+    this.server.registerTool(
+      "update-doc",
+      {
+        title: "Update Document",
+        description: "Update an existing document",
+        inputSchema: {
+          className: z.string().describe("Full class name"),
+          spaceName: z.string().describe("Space name"),
+          objectId: z.string().describe("ID of the object to update"),
+          operations: z.record(z.any()).describe("Update operations as JSON object"),
+          retrieve: z.boolean().optional().default(false).describe("Whether to retrieve the updated object")
+        }
+      },
+      async ({ className, spaceName, objectId, operations, retrieve }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const classRef = this.parseClassName(className);
+          const spaceRef = this.parseClassName(spaceName);
+          
+          const result = await client.updateDoc(classRef, spaceRef, objectId as any, operations, retrieve);
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Document updated successfully\nID: ${objectId}\nOperations: ${JSON.stringify(operations, null, 2)}\nResult: ${JSON.stringify(result, null, 2)}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating document: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Remove Document
+    this.server.registerTool(
+      "remove-doc",
+      {
+        title: "Remove Document",
+        description: "Remove an existing document",
+        inputSchema: {
+          className: z.string().describe("Full class name"),
+          spaceName: z.string().describe("Space name"),
+          objectId: z.string().describe("ID of the object to remove")
+        }
+      },
+      async ({ className, spaceName, objectId }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const classRef = this.parseClassName(className);
+          const spaceRef = this.parseClassName(spaceName);
+          
+          await client.removeDoc(classRef, spaceRef, objectId as any);
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Document removed successfully\nID: ${objectId}\nClass: ${className}\nSpace: ${spaceName}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error removing document: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Add Collection
+    this.server.registerTool(
+      "add-collection",
+      {
+        title: "Add Collection Item",
+        description: "Create a new attached document in a collection",
+        inputSchema: {
+          className: z.string().describe("Class of the object to create"),
+          spaceName: z.string().describe("Space of the object to create"),
+          attachedTo: z.string().describe("ID of the object to attach to"),
+          attachedToClass: z.string().describe("Class of the object to attach to"),
+          collection: z.string().describe("Name of the collection"),
+          attributes: z.record(z.any()).describe("Attributes of the object"),
+          id: z.string().optional().describe("Optional custom ID")
+        }
+      },
+      async ({ className, spaceName, attachedTo, attachedToClass, collection, attributes, id }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const classRef = this.parseClassName(className);
+          const spaceRef = this.parseClassName(spaceName);
+          const attachedToClassRef = this.parseClassName(attachedToClass);
+          const docId = id ? (id as any) : generateId();
+          
+          const createdId = await client.addCollection(
+            classRef,
+            spaceRef,
+            attachedTo as any,
+            attachedToClassRef,
+            collection,
+            attributes,
+            docId
+          );
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Collection item created successfully\nID: ${createdId}\nAttached to: ${attachedTo}\nCollection: ${collection}\nAttributes: ${JSON.stringify(attributes, null, 2)}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error adding to collection: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Update Collection
+    this.server.registerTool(
+      "update-collection",
+      {
+        title: "Update Collection Item",
+        description: "Update an existing attached document in a collection",
+        inputSchema: {
+          className: z.string().describe("Class of the object to update"),
+          spaceName: z.string().describe("Space of the object"),
+          objectId: z.string().describe("ID of the object to update"),
+          attachedTo: z.string().describe("ID of the parent object"),
+          attachedToClass: z.string().describe("Class of the parent object"),
+          collection: z.string().describe("Name of the collection"),
+          attributes: z.record(z.any()).describe("Attributes to update")
+        }
+      },
+      async ({ className, spaceName, objectId, attachedTo, attachedToClass, collection, attributes }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const classRef = this.parseClassName(className);
+          const spaceRef = this.parseClassName(spaceName);
+          const attachedToClassRef = this.parseClassName(attachedToClass);
+          
+          await client.updateCollection(
+            classRef,
+            spaceRef,
+            objectId as any,
+            attachedTo as any,
+            attachedToClassRef,
+            collection,
+            attributes
+          );
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Collection item updated successfully\nID: ${objectId}\nCollection: ${collection}\nUpdated attributes: ${JSON.stringify(attributes, null, 2)}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating collection: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Remove Collection
+    this.server.registerTool(
+      "remove-collection",
+      {
+        title: "Remove Collection Item", 
+        description: "Remove an existing attached document from a collection",
+        inputSchema: {
+          className: z.string().describe("Class of the object to remove"),
+          spaceName: z.string().describe("Space of the object"),
+          objectId: z.string().describe("ID of the object to remove"),
+          attachedTo: z.string().describe("ID of the parent object"),
+          attachedToClass: z.string().describe("Class of the parent object"),
+          collection: z.string().describe("Name of the collection")
+        }
+      },
+      async ({ className, spaceName, objectId, attachedTo, attachedToClass, collection }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const classRef = this.parseClassName(className);
+          const spaceRef = this.parseClassName(spaceName);
+          const attachedToClassRef = this.parseClassName(attachedToClass);
+          
+          await client.removeCollection(
+            classRef,
+            spaceRef,
+            objectId as any,
+            attachedTo as any,
+            attachedToClassRef,
+            collection
+          );
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Collection item removed successfully\nID: ${objectId}\nCollection: ${collection}\nRemoved from: ${attachedTo}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error removing from collection: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Create Mixin
+    this.server.registerTool(
+      "create-mixin",
+      {
+        title: "Create Mixin",
+        description: "Create a new mixin for a specified document",
+        inputSchema: {
+          objectId: z.string().describe("ID of the object the mixin is attached to"),
+          objectClass: z.string().describe("Class of the object the mixin is attached to"),
+          objectSpace: z.string().describe("Space of the object the mixin is attached to"),
+          mixin: z.string().describe("ID of the mixin type"),
+          attributes: z.record(z.any()).describe("Attributes of the mixin")
+        }
+      },
+      async ({ objectId, objectClass, objectSpace, mixin, attributes }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const objectClassRef = this.parseClassName(objectClass);
+          const objectSpaceRef = this.parseClassName(objectSpace);
+          const mixinRef = this.parseClassName(mixin);
+          
+          await client.createMixin(
+            objectId as any,
+            objectClassRef,
+            objectSpaceRef,
+            mixinRef,
+            attributes
+          );
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Mixin created successfully\nObject ID: ${objectId}\nMixin: ${mixin}\nAttributes: ${JSON.stringify(attributes, null, 2)}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating mixin: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Update Mixin
+    this.server.registerTool(
+      "update-mixin",
+      {
+        title: "Update Mixin",
+        description: "Update an existing mixin",
+        inputSchema: {
+          objectId: z.string().describe("ID of the object the mixin is attached to"),
+          objectClass: z.string().describe("Class of the object the mixin is attached to"),
+          objectSpace: z.string().describe("Space of the object the mixin is attached to"),
+          mixin: z.string().describe("ID of the mixin type"),
+          attributes: z.record(z.any()).describe("Attributes to update")
+        }
+      },
+      async ({ objectId, objectClass, objectSpace, mixin, attributes }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          
+          const objectClassRef = this.parseClassName(objectClass);
+          const objectSpaceRef = this.parseClassName(objectSpace);
+          const mixinRef = this.parseClassName(mixin);
+          
+          await client.updateMixin(
+            objectId as any,
+            objectClassRef,
+            objectSpaceRef,
+            mixinRef,
+            attributes
+          );
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Mixin updated successfully\nObject ID: ${objectId}\nMixin: ${mixin}\nUpdated attributes: ${JSON.stringify(attributes, null, 2)}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating mixin: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Connection Status
+    this.server.registerTool(
+      "connection-status",
+      {
+        title: "Connection Status",
+        description: "Check the current connection status to Huly",
+        inputSchema: {
+          ping: z.boolean().optional().default(false).describe("Whether to perform a ping test")
+        }
+      },
+      async ({ ping }) => {
+        try {
+          const isConnected = this.hulyConnection.isConnected();
+          let pingResult = null;
+          
+          if (ping && isConnected) {
+            pingResult = await this.hulyConnection.ping();
+          }
+          
+          return {
+            content: [{
+              type: "text",
+              text: `Connection Status:\n` +
+                    `Connected: ${isConnected}\n` +
+                    (pingResult !== null ? `Ping successful: ${pingResult}\n` : '') +
+                    `Server URL: ${this.hulyConnection['config'].url}\n` +
+                    `Workspace: ${this.hulyConnection['config'].workspace}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error checking connection: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+  }
+
+  // Helper method to parse class names like "tracker.class.Issue" to actual class references
+  private parseClassName(className: string): any {
+    const parts = className.split('.');
+    if (parts.length < 3) {
+      throw new Error(`Invalid class name format: ${className}. Expected format: 'module.class.ClassName'`);
+    }
+    
+    const [moduleName, classType, ...classPath] = parts;
+    
+    let moduleRef: any;
+    switch (moduleName) {
+      case 'tracker':
+        moduleRef = tracker;
+        break;
+      case 'core':
+        moduleRef = core;
+        break;
+      case 'task':
+        moduleRef = task;
+        break;
+      // Add more modules as needed
+      default:
+        throw new Error(`Unknown module: ${moduleName}`);
+    }
+    
+    let current = moduleRef;
+    for (const part of [classType, ...classPath]) {
+      if (!current[part]) {
+        throw new Error(`Class not found: ${className}`);
+      }
+      current = current[part];
+    }
+    
+    return current;
   }
 
   private setupResources(): void {
@@ -352,15 +862,18 @@ export class HulyMCPServer {
       async (uri, { identifier }) => {
         try {
           const client = await this.hulyConnection.connect();
+          
+          // Ensure identifier is a string
+          const projectId = Array.isArray(identifier) ? identifier[0] : identifier;
 
           const project = await client.findOne(
             tracker.class.Project,
-            { identifier },
+            { identifier: projectId },
             { lookup: { type: task.class.ProjectType } }
-          ) as Project | undefined;
+          ) as WithLookup<Project> | undefined;
 
           if (!project) {
-            throw new Error(`Project '${identifier}' not found`);
+            throw new Error(`Project '${projectId}' not found`);
           }
 
           const projectInfo = {
@@ -401,14 +914,17 @@ export class HulyMCPServer {
       async (uri, { identifier }) => {
         try {
           const client = await this.hulyConnection.connect();
+          
+          // Ensure identifier is a string
+          const issueId = Array.isArray(identifier) ? identifier[0] : identifier;
 
           const issue = await client.findOne(
             tracker.class.Issue,
-            { identifier }
+            { identifier: issueId }
           ) as Issue | undefined;
 
           if (!issue) {
-            throw new Error(`Issue '${identifier}' not found`);
+            throw new Error(`Issue '${issueId}' not found`);
           }
 
           const description = issue.description ?
