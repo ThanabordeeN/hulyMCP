@@ -39,7 +39,7 @@ export class HulyConnection {
     try {
       this.client = await connect(this.config.url, options);
       console.info('[HulyConnection] Connected to', this.config.url, 'workspace=', this.config.workspace);
-      return this.client;
+      return this.client!;
     } catch (error) {
       throw new Error(`Failed to connect to Huly: ${error instanceof Error ? error.message : String(error)}`);
     }
