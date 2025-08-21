@@ -3,18 +3,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { HulyConnection } from "./huly-connection.js";
 import { HulyConfig } from "./config.js";
-import { 
-  SortingOrder, 
-  generateId, 
-  type Ref, 
-  Issue, 
-  Project, 
-  IssuePriority,
-  tracker,
-  task,
-  core,
-  makeRank
-} from './huly-types.js';
+import { SortingOrder, generateId, type Ref } from '@hcengineering/core';
+import core from '@hcengineering/core';
+import tracker, { type Issue, type Project, IssuePriority } from '@hcengineering/tracker';
+import task from '@hcengineering/task';
+import { makeRank } from '@hcengineering/rank';
 
 export class HulyMCPServer {
   private server: McpServer;
