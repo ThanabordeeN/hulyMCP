@@ -1,5 +1,4 @@
-import { connect, HulyClient } from './mock-huly-client.js';
-import { ConnectOptions } from './huly-types.js';
+import { connect, Client as HulyClient, ConnectOptions } from '@hcengineering/api-client';
 import { HulyConfig, defaultConfig } from './config.js';
 
 export class HulyConnection {
@@ -17,7 +16,6 @@ export class HulyConnection {
 
     const options: ConnectOptions = {
       workspace: this.config.workspace,
-      connectionTimeout: this.config.connectionTimeout || 30000,
     };
 
     // Add authentication options
