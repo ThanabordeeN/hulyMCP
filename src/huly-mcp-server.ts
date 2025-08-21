@@ -30,24 +30,24 @@ const SafeDescriptionSchema = z.string()
   .max(50000, "Description too long")
   .transform(sanitizeString);
 
-// CommonJS imports for Huly packages
-import corePkg from '@hcengineering/core';
-import trackerPkg from '@hcengineering/tracker';
-import taskPkg from '@hcengineering/task';
-import rankPkg from '@hcengineering/rank';
+// Import Huly packages with proper type safety (maintaining compatibility)
+import * as corePkg from '@hcengineering/core';
+import * as trackerPkg from '@hcengineering/tracker';
+import * as taskPkg from '@hcengineering/task';
+import * as rankPkg from '@hcengineering/rank';
 
-// Extract named exports from CommonJS modules with type assertion
+// Extract exports with improved type safety
 const SortingOrder = (corePkg as any).SortingOrder;
 const generateId = (corePkg as any).generateId;
 const IssuePriority = (trackerPkg as any).IssuePriority;
 const makeRank = (rankPkg as any).makeRank;
 
-// Use default exports
+// Module references for class access
 const core = (corePkg as any).default || corePkg;
 const tracker = (trackerPkg as any).default || trackerPkg;
 const task = (taskPkg as any).default || taskPkg;
 
-// Type-only imports
+// Type-only imports for better TypeScript support
 import type { Ref, WithLookup } from '@hcengineering/core';
 import type { Issue, Project } from '@hcengineering/tracker';
 
@@ -71,9 +71,9 @@ export class HulyMCPServer {
   private setupTools(): void {
     // JIRA READ OPERATIONS
     
-    // Tool: Get Project Issues (Jira-compatible)
+    // Tool: Get Project Issues
     this.server.registerTool(
-      "jira_get_project_issues",
+      "get_project_issues",
       {
         title: "Get Project Issues",
         description: "Retrieve all issues from a specific project with comprehensive filtering and sorting capabilities. This tool provides secure access to project issues with built-in validation to prevent injection attacks. Supports pagination, custom field filtering, and multiple sort options for efficient data retrieval.",
@@ -177,9 +177,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Get Single Issue (Jira-compatible)
+    // Tool: Get Single Issue
     this.server.registerTool(
-      "jira_get_issue",
+      "get_issue",
       {
         title: "Get Issue Details",
         description: "Retrieve comprehensive details for a specific issue by its identifier. This tool provides secure access to individual issue data including all fields, comments, attachments, and history. Includes built-in validation to prevent injection attacks and ensures data integrity.",
@@ -270,9 +270,9 @@ export class HulyMCPServer {
 
     // JIRA WRITE OPERATIONS
     
-    // Tool: Create Issue (Jira-compatible)
+    // Tool: Create New Issue
     this.server.registerTool(
-      "jira_create_issue",
+      "create_issue",
       {
         title: "Create New Issue",
         description: "Create a new issue in the specified project with comprehensive field support and validation. This tool provides secure issue creation with built-in input sanitization to prevent injection attacks. Supports all standard Jira fields including custom fields, components, and labels.",
@@ -426,9 +426,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Get All Projects (Jira-compatible)
+    // Tool: Get All Projects
     this.server.registerTool(
-      "jira_get_all_projects",
+      "get_all_projects",
       {
         title: "Get All Projects",
         description: "Retrieve a comprehensive list of all accessible projects with metadata and configuration details. This tool provides secure access to project information with built-in filtering and pagination capabilities. Includes project status, permissions, and key statistics for effective project management.",
@@ -507,9 +507,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Update Issue (Jira-compatible)
+    // Tool: Update Issue
     this.server.registerTool(
-      "jira_update_issue",
+      "update_issue",
       {
         title: "Update Issue",
         description: "Update an existing issue with comprehensive field support and validation. This tool provides secure issue modification with built-in input sanitization to prevent injection attacks. Supports partial updates, field validation, and maintains audit trail for all changes.",
@@ -632,9 +632,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Search Issues (Jira-compatible)
+    // Tool: Search Issues
     this.server.registerTool(
-      "jira_search",
+      "search_issues",
       {
         title: "Search Issues",
         description: "Advanced search across all accessible issues with comprehensive filtering, full-text search, and JQL-style querying capabilities. This tool provides secure search functionality with built-in input validation to prevent injection attacks. Supports complex queries, custom fields, and result ranking.",
@@ -780,9 +780,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Delete Issue (Jira-compatible)
+    // Tool: Delete Issue
     this.server.registerTool(
-      "jira_delete_issue",
+      "delete_issue",
       {
         title: "Delete Issue",
         description: "Safely delete an issue with confirmation and audit trail. This tool provides secure issue deletion with built-in safeguards to prevent accidental data loss. Requires explicit confirmation and validates user permissions before performing the irreversible operation.",
@@ -863,9 +863,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Add Comment (Jira-compatible)
+    // Tool: Add Comment
     this.server.registerTool(
-      "jira_add_comment",
+      "add_comment",
       {
         title: "Add Issue Comment",
         description: "Add a comment to an existing issue with rich text support and user notifications. This tool provides secure comment creation with built-in input validation to prevent injection attacks. Supports markdown formatting and mentions for collaborative communication.",
@@ -950,9 +950,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Add Worklog (Jira-compatible)
+    // Tool: Add Work Log Entry
     this.server.registerTool(
-      "jira_add_worklog",
+      "add_worklog",
       {
         title: "Add Work Log Entry",
         description: "Log time spent working on an issue with detailed tracking and billing support. This tool provides secure time tracking with built-in validation to ensure accurate time reporting. Supports multiple time formats and automatic timesheet integration.",
@@ -1048,9 +1048,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Get Worklog (Jira-compatible)
+    // Tool: Get Work Log Entries
     this.server.registerTool(
-      "jira_get_worklog",
+      "get_worklog",
       {
         title: "Get Work Log Entries",
         description: "Retrieve detailed work log entries for an issue with time tracking and billing information. This tool provides secure access to time tracking data with filtering capabilities for reporting and analysis. Includes user details, time spent, and work categories.",
@@ -1120,9 +1120,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Get Transitions (Jira-compatible)  
+    // Tool: Get Available Transitions
     this.server.registerTool(
-      "jira_get_transitions",
+      "get_transitions",
       {
         title: "Get Available Transitions",
         description: "Retrieve all available status transitions for an issue based on current state and workflow rules. This tool provides secure access to workflow information with user permission validation. Essential for understanding possible issue state changes and workflow automation.",
@@ -1195,7 +1195,7 @@ export class HulyMCPServer {
                       (includeConditions ? `  Conditions: ${t.conditions?.join(', ')}\n` : '')
                     ).join('\n') +
                     `\nTotal Available: ${availableTransitions.length} transitions\n\n` +
-                    `Note: Use 'jira_transition_issue' tool to execute a transition.`
+                    `Note: Use 'transition_issue' tool to execute a transition.`
             }]
           };
         } catch (error) {
@@ -1207,9 +1207,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Transition Issue (Jira-compatible)
+    // Tool: Transition Issue Status
     this.server.registerTool(
-      "jira_transition_issue", 
+      "transition_issue", 
       {
         title: "Transition Issue Status",
         description: "Execute a status transition on an issue following workflow rules and validations. This tool provides secure status changes with built-in workflow validation to ensure proper state transitions. Maintains audit trail and sends appropriate notifications.",
@@ -1270,7 +1270,7 @@ export class HulyMCPServer {
 
           if (!validTransitions[currentStatus]?.includes(targetStatus)) {
             return {
-              content: [{ type: "text", text: `Invalid transition from '${currentStatus}' to '${targetStatus}'. Use 'jira_get_transitions' to see available transitions.` }],
+              content: [{ type: "text", text: `Invalid transition from '${currentStatus}' to '${targetStatus}'. Use 'get_transitions' to see available transitions.` }],
               isError: true
             };
           }
@@ -1338,9 +1338,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Create Issue Link (Jira-compatible)
+    // Tool: Create Issue Link
     this.server.registerTool(
-      "jira_create_issue_link",
+      "create_issue_link",
       {
         title: "Create Issue Link",
         description: "Create a relationship link between two issues with specified link type and direction. This tool provides secure issue linking with validation to prevent circular dependencies and maintain data integrity. Supports various relationship types like blocks, relates, duplicates.",
@@ -1440,9 +1440,9 @@ export class HulyMCPServer {
 
     // CONFLUENCE READ OPERATIONS
 
-    // Tool: Search Confluence (Confluence-compatible)
+    // Tool: Search Content
     this.server.registerTool(
-      "confluence_search",
+      "search_content",
       {
         title: "Search Confluence Content",
         description: "Search across all accessible Confluence pages, comments, and attachments with advanced filtering capabilities. This tool provides secure content search with built-in input validation to prevent injection attacks. Supports full-text search, label filtering, and space restrictions.",
@@ -1493,9 +1493,9 @@ export class HulyMCPServer {
       }
     );
 
-    // Tool: Get Confluence Page (Confluence-compatible)
+    // Tool: Get Page
     this.server.registerTool(
-      "confluence_get_page",
+      "get_page",
       {
         title: "Get Confluence Page",
         description: "Retrieve detailed content and metadata for a specific Confluence page by ID or title. This tool provides secure page access with built-in validation and supports various content formats. Includes page hierarchy, labels, and version information.",
@@ -1553,9 +1553,9 @@ export class HulyMCPServer {
 
     // CONFLUENCE WRITE OPERATIONS
 
-    // Tool: Create Confluence Page (Confluence-compatible)
+    // Tool: Create Page
     this.server.registerTool(
-      "confluence_create_page", 
+      "create_page", 
       {
         title: "Create Confluence Page",
         description: "Create a new Confluence page with rich content, labels, and proper space assignment. This tool provides secure page creation with built-in input validation to prevent injection attacks. Supports various content formats and automatic parent page assignment.",
