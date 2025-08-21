@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { HulyConnection } from "./huly-connection.js";
 import { HulyConfig } from "./config.js";
-import { SortingOrder, generateId, type Ref } from '@hcengineering/core';
+import { SortingOrder, generateId, type Ref, type WithLookup } from '@hcengineering/core';
 import core from '@hcengineering/core';
 import tracker, { type Issue, type Project, IssuePriority } from '@hcengineering/tracker';
 import task from '@hcengineering/task';
@@ -162,7 +162,7 @@ export class HulyMCPServer {
           );
 
           // Upload description if provided
-          let descriptionRef;
+          let descriptionRef: any = null;
           if (description) {
             descriptionRef = await client.uploadMarkup(
               tracker.class.Issue, 
@@ -177,7 +177,7 @@ export class HulyMCPServer {
           const priorityMap: { [key: string]: IssuePriority } = {
             'Urgent': IssuePriority.Urgent,
             'High': IssuePriority.High,
-            'Normal': IssuePriority.Normal,
+            'Normal': IssuePriority.Medium,
             'Low': IssuePriority.Low
           };
 
@@ -195,7 +195,7 @@ export class HulyMCPServer {
               number: sequence,
               kind: tracker.taskTypes.Issue,
               identifier: `${project.identifier}-${sequence}`,
-              priority: priorityMap[priority] || IssuePriority.Normal,
+              priority: priorityMap[priority] || IssuePriority.Medium,
               assignee: null,
               component: null,
               estimation: 0,
@@ -252,9 +252,9 @@ export class HulyMCPServer {
               limit,
               lookup: { type: task.class.ProjectType }
             }
-          ) as Project[];
+          ) as WithLookup<Project>[];
 
-          const projectList = projects.map((project: Project) => ({
+          const projectList = projects.map((project: WithLookup<Project>) => ({
             identifier: project.identifier,
             name: project.name,
             description: project.description,
@@ -324,8 +324,8 @@ export class HulyMCPServer {
                     `Estimation: ${issue.estimation}h\n` +
                     `Remaining Time: ${issue.remainingTime}h\n` +
                     `Reported Time: ${issue.reportedTime}h\n` +
-                    `Created: ${new Date(issue.createdOn).toISOString()}\n` +
-                    `Modified: ${new Date(issue.modifiedOn).toISOString()}\n\n` +
+                    `Created: ${issue.createdOn ? new Date(issue.createdOn).toISOString() : 'Unknown'}\n` +
+                    `Modified: ${issue.modifiedOn ? new Date(issue.modifiedOn).toISOString() : 'Unknown'}\n\n` +
                     `Description:\n${description}`
             }]
           };
@@ -352,15 +352,18 @@ export class HulyMCPServer {
       async (uri, { identifier }) => {
         try {
           const client = await this.hulyConnection.connect();
+          
+          // Ensure identifier is a string
+          const projectId = Array.isArray(identifier) ? identifier[0] : identifier;
 
           const project = await client.findOne(
             tracker.class.Project,
-            { identifier },
+            { identifier: projectId },
             { lookup: { type: task.class.ProjectType } }
-          ) as Project | undefined;
+          ) as WithLookup<Project> | undefined;
 
           if (!project) {
-            throw new Error(`Project '${identifier}' not found`);
+            throw new Error(`Project '${projectId}' not found`);
           }
 
           const projectInfo = {
@@ -401,14 +404,17 @@ export class HulyMCPServer {
       async (uri, { identifier }) => {
         try {
           const client = await this.hulyConnection.connect();
+          
+          // Ensure identifier is a string
+          const issueId = Array.isArray(identifier) ? identifier[0] : identifier;
 
           const issue = await client.findOne(
             tracker.class.Issue,
-            { identifier }
+            { identifier: issueId }
           ) as Issue | undefined;
 
           if (!issue) {
-            throw new Error(`Issue '${identifier}' not found`);
+            throw new Error(`Issue '${issueId}' not found`);
           }
 
           const description = issue.description ?

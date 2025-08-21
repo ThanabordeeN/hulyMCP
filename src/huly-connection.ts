@@ -1,29 +1,33 @@
-import { connect, Client as HulyClient, ConnectOptions } from '@hcengineering/api-client';
+import { connect, type PlatformClient, type ConnectOptions } from '@hcengineering/api-client';
 import { HulyConfig, defaultConfig } from './config.js';
 
 export class HulyConnection {
-  private client: HulyClient | null = null;
+  private client: PlatformClient | null = null;
   private config: HulyConfig;
 
   constructor(config: HulyConfig) {
     this.config = { ...defaultConfig, ...config };
   }
 
-  async connect(): Promise<HulyClient> {
+  async connect(): Promise<PlatformClient> {
     if (this.client) {
       return this.client;
     }
 
-    const options: ConnectOptions = {
-      workspace: this.config.workspace,
-    };
-
-    // Add authentication options
+    // Create options based on authentication method
+    let options: ConnectOptions;
+    
     if (this.config.token) {
-      options.token = this.config.token;
+      options = {
+        workspace: this.config.workspace,
+        token: this.config.token
+      } as ConnectOptions;
     } else if (this.config.email && this.config.password) {
-      options.email = this.config.email;
-      options.password = this.config.password;
+      options = {
+        workspace: this.config.workspace,
+        email: this.config.email,
+        password: this.config.password
+      } as ConnectOptions;
     } else {
       throw new Error('Either token or email/password must be provided for Huly authentication');
     }
@@ -43,7 +47,7 @@ export class HulyConnection {
     }
   }
 
-  getClient(): HulyClient {
+  getClient(): PlatformClient {
     if (!this.client) {
       throw new Error('Not connected to Huly. Call connect() first.');
     }

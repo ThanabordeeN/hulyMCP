@@ -14,7 +14,7 @@
     "REAL_HULY_INTEGRATION.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "npx tsc src/index.ts --outDir dist --moduleResolution node --target ES2022 --module ESNext --skipLibCheck --esModuleInterop --allowSyntheticDefaultImports --declaration --sourceMap",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "demo": "tsx test/demo.ts",
