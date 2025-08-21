@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 import { HulyMCPServer } from './huly-mcp-server.js';
 import { HulyConfig } from './config.js';
 import { fileURLToPath } from 'url';

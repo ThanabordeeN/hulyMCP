@@ -37,16 +37,8 @@ async function demonstrate() {
   console.log('1. create-issue-template - Issue creation templates');
   console.log('2. project-review-template - Project review templates\n');
 
-  console.log('📊 Sample Mock Data Available:');
-  console.log('Projects:');
-  console.log('- HULY: Huly Platform (main development project)');
-  console.log('- DOCS: Documentation project\n');
-
-  console.log('Issues:');
-  console.log('- HULY-101: Implement user authentication (High priority, in-progress)');
-  console.log('- HULY-102: Fix navigation bug in mobile view (Urgent, todo)');
-  console.log('- HULY-103: Add dark mode support (Normal, backlog)');
-  console.log('- DOCS-15: Update API documentation (Normal, review)\n');
+  // No embedded sample/mock data included. For setup with a real Huly instance see
+  // REAL_HULY_INTEGRATION.md
 
   console.log('💡 To use this MCP server:');
   console.log('1. Build: npm run build');
