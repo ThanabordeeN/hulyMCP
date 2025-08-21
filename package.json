@@ -30,9 +30,10 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-  "@modelcontextprotocol/sdk": "^1.17.3",
-  "zod": "^3.23.8",
-  "dotenv": "^16.1.4"
+    "@hcengineering/api-client": "^0.6.502",
+    "@modelcontextprotocol/sdk": "^1.17.3",
+    "dotenv": "^16.1.4",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.0.2",
