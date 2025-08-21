@@ -1,6 +1,6 @@
 # Example MCP Client Configuration
 
-This document shows how to configure various MCP clients to use the Huly MCP Server.
+This document shows how to configure various MCP clients to use the Huly MCP Server with comprehensive project management capabilities.
 
 ## Claude Desktop Configuration
 
@@ -136,48 +136,331 @@ npx @modelcontextprotocol/inspector node dist/index.js
 
 ## Available Tools
 
-Once connected, you can use these tools in your MCP client:
+Once connected, you can use these comprehensive tools in your MCP client:
 
-### List Issues
-```
-Use the "list-issues" tool with:
-- projectIdentifier: "HULY" (or any project identifier)
-- limit: 10 (optional)
-- sortBy: "modifiedOn" (optional: modifiedOn, createdOn, title)
-- sortOrder: "desc" (optional: asc, desc)
-```
+### Project Management
 
-### Create Issue
-```
-Use the "create-issue" tool with:
-- projectIdentifier: "HULY"
-- title: "Issue title"
-- description: "Issue description in markdown"
-- priority: "Normal" (optional: Urgent, High, Normal, Low)
+#### create-project
+Create a new project with comprehensive configuration.
+```json
+{
+  "name": "New Project",
+  "identifier": "PROJ",
+  "description": "Project description",
+  "visibility": "public",
+  "owner": "owner@example.com",
+  "timezone": "UTC",
+  "type": "project"
+}
 ```
 
-### Get Issue Details
-```
-Use the "get-issue" tool with:
-- issueIdentifier: "HULY-123"
+#### update-project
+Update an existing project.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "name": "Updated Name",
+  "description": "Updated description",
+  "visibility": "private",
+  "archived": false
+}
 ```
 
-### List Projects
+#### delete-project
+Delete a project (requires confirmation).
+```json
+{
+  "projectIdentifier": "PROJ",
+  "confirm": true
+}
 ```
-Use the "list-projects" tool with:
-- limit: 50 (optional)
+
+#### list-projects
+List all projects.
+```json
+{
+  "limit": 50
+}
+```
+
+### Component Management
+
+#### create-component
+Create a new component in a project.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "name": "Frontend",
+  "description": "Frontend components",
+  "lead": "lead@example.com"
+}
+```
+
+#### list-components
+List components in a project.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "limit": 50
+}
+```
+
+#### update-component
+Update an existing component.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "componentName": "Frontend",
+  "description": "Updated description",
+  "lead": "newlead@example.com"
+}
+```
+
+#### delete-component
+Delete a component (requires confirmation).
+```json
+{
+  "projectIdentifier": "PROJ",
+  "componentName": "Frontend",
+  "confirm": true
+}
+```
+
+### Sprint & Project Planning
+
+#### create-sprint
+Create a new sprint.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "name": "Sprint 1",
+  "startDate": "2024-01-01",
+  "endDate": "2024-01-14",
+  "capacity": 80,
+  "workingDays": [1, 2, 3, 4, 5]
+}
+```
+
+#### list-sprints
+List sprints in a project.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "status": "active",
+  "limit": 20
+}
+```
+
+#### update-sprint
+Update an existing sprint.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "sprintName": "Sprint 1",
+  "capacity": 100,
+  "status": "active"
+}
+```
+
+#### move-issues-to-sprint
+Move issues to a sprint with filters.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "sprintName": "Sprint 1",
+  "filters": {
+    "status": "open",
+    "priority": "High"
+  }
+}
+```
+
+### Enhanced Issue Management
+
+#### create-issue
+Create a new issue.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "title": "Bug fix needed",
+  "description": "Description in **markdown**",
+  "priority": "High",
+  "assignee": "user@example.com"
+}
+```
+
+#### update-issue
+Update an existing issue with enhanced capabilities.
+```json
+{
+  "issueIdentifier": "PROJ-123",
+  "title": "Updated title",
+  "priority": "Urgent",
+  "estimation": 5,
+  "dueDate": "2024-01-15",
+  "component": "Frontend"
+}
+```
+
+#### change-issue-status
+Change issue status with optional comment.
+```json
+{
+  "issueIdentifier": "PROJ-123",
+  "newStatus": "in-progress",
+  "comment": "Starting work on this issue"
+}
+```
+
+#### link-issues
+Create relationships between issues.
+```json
+{
+  "sourceIssue": "PROJ-123",
+  "targetIssue": "PROJ-124",
+  "linkType": "blocks"
+}
+```
+
+#### create-subtask
+Create a subtask for an existing issue.
+```json
+{
+  "parentIssue": "PROJ-123",
+  "title": "Subtask title",
+  "description": "Subtask description",
+  "assignee": "user@example.com",
+  "estimation": 2
+}
+```
+
+#### delete-issue
+Delete an issue (requires confirmation).
+```json
+{
+  "issueIdentifier": "PROJ-123",
+  "confirm": true
+}
+```
+
+#### list-issues
+List issues in a project.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "limit": 20,
+  "sortBy": "modifiedOn",
+  "sortOrder": "desc"
+}
+```
+
+#### get-issue
+Get detailed information about a specific issue.
+```json
+{
+  "issueIdentifier": "PROJ-123"
+}
+```
+
+### Reporting & Analytics
+
+#### generate-sprint-report
+Generate comprehensive sprint reports.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "sprintName": "Sprint 1",
+  "reportType": "burndown"
+}
+```
+
+#### cross-module-search
+Search across tasks, documents, and contacts.
+```json
+{
+  "query": "bug",
+  "modules": ["task", "contact"],
+  "limit": 20
+}
+```
+
+#### export-data
+Export project data in CSV or JSON format.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "dataType": "issues",
+  "format": "csv",
+  "filters": {"status": "completed"}
+}
+```
+
+#### create-saved-filter
+Create saved filters for frequent queries.
+```json
+{
+  "name": "High Priority Bugs",
+  "description": "All high priority bug issues",
+  "query": {"priority": "High", "kind": "bug"},
+  "targetClass": "tracker.class.Issue"
+}
+```
+
+### System Tools
+
+#### connection-status
+Check the current connection status to Huly.
+```json
+{
+  "ping": true
+}
+```
+
+### Generic Document Operations
+
+#### find-one
+Find a single document by class and query criteria.
+```json
+{
+  "className": "tracker.class.Issue",
+  "query": {"identifier": "PROJ-123"},
+  "options": {"lookup": {"type": "task.class.ProjectType"}}
+}
+```
+
+#### find-all
+Find multiple documents by class and query criteria.
+```json
+{
+  "className": "tracker.class.Issue",
+  "query": {"space": "project-id"},
+  "options": {"limit": 10, "sort": {"modifiedOn": -1}}
+}
+```
+
+#### create-doc
+Create a new document in the specified space.
+```json
+{
+  "className": "contact.class.Person",
+  "spaceName": "contact.space.Contacts",
+  "attributes": {
+    "name": "John Doe",
+    "city": "New York"
+  }
+}
 ```
 
 ## Available Resources
 
 ### Project Information
 ```
-Access project data with URI: huly://project/HULY
+Access project data with URI: huly://project/PROJ
 ```
 
 ### Issue Details
 ```
-Access issue data with URI: huly://issue/HULY-123
+Access issue data with URI: huly://issue/PROJ-123
 ```
 
 ## Available Prompts
@@ -192,6 +475,6 @@ Use "create-issue-template" prompt with:
 ### Project Review Template
 ```
 Use "project-review-template" prompt with:
-- projectIdentifier: "HULY"
+- projectIdentifier: "PROJ"
 - reviewType: "sprint" (or milestone, quarterly)
 ```

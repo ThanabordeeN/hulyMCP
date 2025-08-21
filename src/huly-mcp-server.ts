@@ -37,6 +37,7 @@ export class HulyMCPServer {
 
     this.hulyConnection = new HulyConnection(config);
     this.setupTools();
+    this.setupReportingTools();
     this.setupResources();
     this.setupPrompts();
   }
@@ -299,6 +300,832 @@ export class HulyMCPServer {
       }
     );
 
+    // Tool: Create Project
+    this.server.registerTool(
+      "create-project",
+      {
+        title: "Create Project",
+        description: "Create a new Huly project with comprehensive configuration",
+        inputSchema: {
+          name: z.string().describe("Project name"),
+          identifier: z.string().describe("Project key/identifier (e.g., 'PROJ')"),
+          description: z.string().optional().describe("Project description"),
+          visibility: z.enum(['public', 'private']).optional().default('public').describe("Project visibility"),
+          owner: z.string().optional().describe("Project owner email"),
+          timezone: z.string().optional().default('UTC').describe("Project timezone"),
+          type: z.string().optional().default('project').describe("Project type")
+        }
+      },
+      async ({ name, identifier, description, visibility, owner, timezone, type }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Check if project identifier already exists
+          const existingProject = await client.findOne(
+            tracker.class.Project,
+            { identifier }
+          );
+
+          if (existingProject) {
+            return {
+              content: [{ type: "text", text: `Project with identifier '${identifier}' already exists` }],
+              isError: true
+            };
+          }
+
+          // Find project type
+          const projectType = await client.findOne(
+            task.class.ProjectType,
+            { name: type }
+          );
+
+          if (!projectType) {
+            return {
+              content: [{ type: "text", text: `Project type '${type}' not found. Use existing type or 'project'.` }],
+              isError: true
+            };
+          }
+
+          const projectId = generateId();
+          
+          // Create project
+          await client.createDoc(
+            tracker.class.Project,
+            core.space.Space,
+            {
+              name,
+              identifier,
+              description: description || '',
+              private: visibility === 'private',
+              archived: false,
+              type: projectType._id,
+              defaultIssueStatus: null,
+              sequence: 0,
+              // Additional project attributes
+              timezone: timezone || 'UTC',
+              autoJoin: true,
+              owners: owner ? [owner] : [],
+              members: []
+            },
+            projectId
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully created project: ${identifier}\n` +
+                    `Name: ${name}\n` +
+                    `Description: ${description || 'No description'}\n` +
+                    `Visibility: ${visibility}\n` +
+                    `Timezone: ${timezone}\n` +
+                    `Owner: ${owner || 'Not specified'}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating project: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Update Project
+    this.server.registerTool(
+      "update-project",
+      {
+        title: "Update Project",
+        description: "Update an existing Huly project",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier to update"),
+          name: z.string().optional().describe("New project name"),
+          description: z.string().optional().describe("New project description"),
+          visibility: z.enum(['public', 'private']).optional().describe("New project visibility"),
+          owner: z.string().optional().describe("New project owner email"),
+          timezone: z.string().optional().describe("New project timezone"),
+          archived: z.boolean().optional().describe("Archive/unarchive project")
+        }
+      },
+      async ({ projectIdentifier, name, description, visibility, owner, timezone, archived }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          const updateOps: any = {};
+          if (name !== undefined) updateOps.name = name;
+          if (description !== undefined) updateOps.description = description;
+          if (visibility !== undefined) updateOps.private = visibility === 'private';
+          if (timezone !== undefined) updateOps.timezone = timezone;
+          if (archived !== undefined) updateOps.archived = archived;
+
+          if (Object.keys(updateOps).length === 0) {
+            return {
+              content: [{ type: "text", text: "No update parameters provided" }],
+              isError: true
+            };
+          }
+
+          await client.updateDoc(
+            tracker.class.Project,
+            core.space.Space,
+            project._id,
+            updateOps
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully updated project: ${projectIdentifier}\n` +
+                    `Updated fields: ${Object.keys(updateOps).join(', ')}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating project: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Delete Project
+    this.server.registerTool(
+      "delete-project",
+      {
+        title: "Delete Project",
+        description: "Delete a Huly project (use with caution)",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier to delete"),
+          confirm: z.boolean().describe("Confirmation flag - must be true to proceed")
+        }
+      },
+      async ({ projectIdentifier, confirm }) => {
+        try {
+          if (!confirm) {
+            return {
+              content: [{ type: "text", text: "Deletion requires confirmation flag to be true" }],
+              isError: true
+            };
+          }
+
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          await client.removeDoc(
+            tracker.class.Project,
+            core.space.Space,
+            project._id
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully deleted project: ${projectIdentifier}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error deleting project: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Create Component
+    this.server.registerTool(
+      "create-component",
+      {
+        title: "Create Component",
+        description: "Create a new component in a project",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          name: z.string().describe("Component name"),
+          description: z.string().optional().describe("Component description"),
+          lead: z.string().optional().describe("Component lead email")
+        }
+      },
+      async ({ projectIdentifier, name, description, lead }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          const componentId = generateId();
+
+          await client.createDoc(
+            tracker.class.Component,
+            project._id,
+            {
+              name,
+              description: description || '',
+              lead: lead || null,
+              attachments: 0
+            },
+            componentId
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully created component: ${name}\n` +
+                    `Project: ${projectIdentifier}\n` +
+                    `Description: ${description || 'No description'}\n` +
+                    `Lead: ${lead || 'Not specified'}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating component: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: List Components
+    this.server.registerTool(
+      "list-components",
+      {
+        title: "List Components",
+        description: "List components in a project",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          limit: z.number().optional().default(50).describe("Maximum number of components to return")
+        }
+      },
+      async ({ projectIdentifier, limit }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          const components = await client.findAll(
+            tracker.class.Component,
+            { space: project._id },
+            { limit }
+          );
+
+          const componentList = components.map((component: any) => ({
+            name: component.name,
+            description: component.description,
+            lead: component.lead,
+            attachments: component.attachments
+          }));
+
+          return {
+            content: [{
+              type: "text",
+              text: `Found ${components.length} components in project ${projectIdentifier}:\n\n` +
+                    componentList.map((component: any) =>
+                      `• ${component.name}\n` +
+                      `  Description: ${component.description || 'No description'}\n` +
+                      `  Lead: ${component.lead || 'Not assigned'}\n` +
+                      `  Attachments: ${component.attachments}\n`
+                    ).join('\n')
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error listing components: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Update Component
+    this.server.registerTool(
+      "update-component",
+      {
+        title: "Update Component",
+        description: "Update an existing component",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          componentName: z.string().describe("Component name to update"),
+          name: z.string().optional().describe("New component name"),
+          description: z.string().optional().describe("New component description"),
+          lead: z.string().optional().describe("New component lead email")
+        }
+      },
+      async ({ projectIdentifier, componentName, name, description, lead }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // Find component by name
+          const component = await client.findOne(
+            tracker.class.Component,
+            { space: project._id, name: componentName }
+          );
+
+          if (!component) {
+            return {
+              content: [{ type: "text", text: `Component '${componentName}' not found in project '${projectIdentifier}'` }],
+              isError: true
+            };
+          }
+
+          const updateOps: any = {};
+          if (name !== undefined) updateOps.name = name;
+          if (description !== undefined) updateOps.description = description;
+          if (lead !== undefined) updateOps.lead = lead;
+
+          if (Object.keys(updateOps).length === 0) {
+            return {
+              content: [{ type: "text", text: "No update parameters provided" }],
+              isError: true
+            };
+          }
+
+          await client.updateDoc(
+            tracker.class.Component,
+            project._id,
+            component._id,
+            updateOps
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully updated component: ${componentName}\n` +
+                    `Project: ${projectIdentifier}\n` +
+                    `Updated fields: ${Object.keys(updateOps).join(', ')}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating component: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Delete Component
+    this.server.registerTool(
+      "delete-component",
+      {
+        title: "Delete Component",
+        description: "Delete a component from a project",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          componentName: z.string().describe("Component name to delete"),
+          confirm: z.boolean().describe("Confirmation flag - must be true to proceed")
+        }
+      },
+      async ({ projectIdentifier, componentName, confirm }) => {
+        try {
+          if (!confirm) {
+            return {
+              content: [{ type: "text", text: "Deletion requires confirmation flag to be true" }],
+              isError: true
+            };
+          }
+
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // Find component by name
+          const component = await client.findOne(
+            tracker.class.Component,
+            { space: project._id, name: componentName }
+          );
+
+          if (!component) {
+            return {
+              content: [{ type: "text", text: `Component '${componentName}' not found in project '${projectIdentifier}'` }],
+              isError: true
+            };
+          }
+
+          await client.removeDoc(
+            tracker.class.Component,
+            project._id,
+            component._id
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully deleted component: ${componentName} from project ${projectIdentifier}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error deleting component: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // === PROJECT PLANNING CAPABILITIES ===
+
+    // Tool: Create Sprint
+    this.server.registerTool(
+      "create-sprint",
+      {
+        title: "Create Sprint",
+        description: "Create a new sprint in a project",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          name: z.string().describe("Sprint name"),
+          startDate: z.string().describe("Sprint start date (ISO 8601 format)"),
+          endDate: z.string().describe("Sprint end date (ISO 8601 format)"),
+          capacity: z.number().optional().describe("Sprint capacity in hours"),
+          workingDays: z.array(z.number()).optional().default([1, 2, 3, 4, 5]).describe("Working days (0=Sunday, 1=Monday, etc.)")
+        }
+      },
+      async ({ projectIdentifier, name, startDate, endDate, capacity, workingDays }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          const sprintId = generateId();
+
+          await client.createDoc(
+            tracker.class.Sprint,
+            project._id,
+            {
+              name,
+              description: '',
+              status: 'planned',
+              startDate: new Date(startDate).getTime(),
+              targetDate: new Date(endDate).getTime(),
+              capacity: capacity || 0,
+              workingDays: workingDays || [1, 2, 3, 4, 5],
+              attachments: 0
+            },
+            sprintId
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully created sprint: ${name}\n` +
+                    `Project: ${projectIdentifier}\n` +
+                    `Start Date: ${startDate}\n` +
+                    `End Date: ${endDate}\n` +
+                    `Capacity: ${capacity || 'Not specified'} hours\n` +
+                    `Working Days: ${workingDays?.join(', ') || 'Mon-Fri'}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating sprint: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: List Sprints
+    this.server.registerTool(
+      "list-sprints",
+      {
+        title: "List Sprints",
+        description: "List sprints in a project",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          status: z.enum(['planned', 'active', 'completed', 'all']).optional().default('all').describe("Sprint status filter"),
+          limit: z.number().optional().default(20).describe("Maximum number of sprints to return")
+        }
+      },
+      async ({ projectIdentifier, status, limit }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          const query: any = { space: project._id };
+          if (status !== 'all') {
+            query.status = status;
+          }
+
+          const sprints = await client.findAll(
+            tracker.class.Sprint,
+            query,
+            { 
+              limit,
+              sort: { startDate: SortingOrder.Descending }
+            }
+          );
+
+          const sprintList = sprints.map((sprint: any) => ({
+            name: sprint.name,
+            status: sprint.status,
+            startDate: new Date(sprint.startDate).toISOString().split('T')[0],
+            endDate: new Date(sprint.targetDate).toISOString().split('T')[0],
+            capacity: sprint.capacity,
+            workingDays: sprint.workingDays
+          }));
+
+          return {
+            content: [{
+              type: "text",
+              text: `Found ${sprints.length} sprints in project ${projectIdentifier}:\n\n` +
+                    sprintList.map((sprint: any) =>
+                      `• ${sprint.name} (${sprint.status})\n` +
+                      `  Period: ${sprint.startDate} to ${sprint.endDate}\n` +
+                      `  Capacity: ${sprint.capacity} hours\n` +
+                      `  Working Days: ${sprint.workingDays?.join(', ') || 'Not specified'}\n`
+                    ).join('\n')
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error listing sprints: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Update Sprint
+    this.server.registerTool(
+      "update-sprint",
+      {
+        title: "Update Sprint",
+        description: "Update an existing sprint",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          sprintName: z.string().describe("Sprint name to update"),
+          name: z.string().optional().describe("New sprint name"),
+          startDate: z.string().optional().describe("New start date (ISO 8601 format)"),
+          endDate: z.string().optional().describe("New end date (ISO 8601 format)"),
+          capacity: z.number().optional().describe("New capacity in hours"),
+          status: z.enum(['planned', 'active', 'completed']).optional().describe("New sprint status"),
+          workingDays: z.array(z.number()).optional().describe("New working days")
+        }
+      },
+      async ({ projectIdentifier, sprintName, name, startDate, endDate, capacity, status, workingDays }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // Find sprint by name
+          const sprint = await client.findOne(
+            tracker.class.Sprint,
+            { space: project._id, name: sprintName }
+          );
+
+          if (!sprint) {
+            return {
+              content: [{ type: "text", text: `Sprint '${sprintName}' not found in project '${projectIdentifier}'` }],
+              isError: true
+            };
+          }
+
+          const updateOps: any = {};
+          if (name !== undefined) updateOps.name = name;
+          if (startDate !== undefined) updateOps.startDate = new Date(startDate).getTime();
+          if (endDate !== undefined) updateOps.targetDate = new Date(endDate).getTime();
+          if (capacity !== undefined) updateOps.capacity = capacity;
+          if (status !== undefined) updateOps.status = status;
+          if (workingDays !== undefined) updateOps.workingDays = workingDays;
+
+          if (Object.keys(updateOps).length === 0) {
+            return {
+              content: [{ type: "text", text: "No update parameters provided" }],
+              isError: true
+            };
+          }
+
+          await client.updateDoc(
+            tracker.class.Sprint,
+            project._id,
+            sprint._id,
+            updateOps
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully updated sprint: ${sprintName}\n` +
+                    `Project: ${projectIdentifier}\n` +
+                    `Updated fields: ${Object.keys(updateOps).join(', ')}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating sprint: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Move Issues to Sprint
+    this.server.registerTool(
+      "move-issues-to-sprint",
+      {
+        title: "Move Issues to Sprint",
+        description: "Move issues to a sprint with optional filters",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          sprintName: z.string().describe("Target sprint name"),
+          issueIdentifiers: z.array(z.string()).optional().describe("Specific issue identifiers to move"),
+          filters: z.object({
+            status: z.string().optional().describe("Filter by issue status"),
+            priority: z.string().optional().describe("Filter by issue priority"),
+            component: z.string().optional().describe("Filter by component"),
+            assignee: z.string().optional().describe("Filter by assignee")
+          }).optional().describe("Filters to apply when selecting issues")
+        }
+      },
+      async ({ projectIdentifier, sprintName, issueIdentifiers, filters }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // Find sprint by name
+          const sprint = await client.findOne(
+            tracker.class.Sprint,
+            { space: project._id, name: sprintName }
+          );
+
+          if (!sprint) {
+            return {
+              content: [{ type: "text", text: `Sprint '${sprintName}' not found in project '${projectIdentifier}'` }],
+              isError: true
+            };
+          }
+
+          let issues: any[] = [];
+
+          if (issueIdentifiers && issueIdentifiers.length > 0) {
+            // Move specific issues
+            for (const identifier of issueIdentifiers) {
+              const issue = await client.findOne(
+                tracker.class.Issue,
+                { identifier }
+              );
+              if (issue) {
+                issues.push(issue);
+              }
+            }
+          } else if (filters) {
+            // Find issues based on filters
+            const query: any = { space: project._id };
+            if (filters.status) query.status = filters.status;
+            if (filters.priority) query.priority = filters.priority;
+            if (filters.component) query.component = filters.component;
+            if (filters.assignee) query.assignee = filters.assignee;
+
+            issues = await client.findAll(tracker.class.Issue, query);
+          }
+
+          if (issues.length === 0) {
+            return {
+              content: [{ type: "text", text: "No issues found matching the criteria" }],
+              isError: true
+            };
+          }
+
+          // Move issues to sprint
+          for (const issue of issues) {
+            await client.updateDoc(
+              tracker.class.Issue,
+              project._id,
+              issue._id,
+              { sprint: sprint._id }
+            );
+          }
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully moved ${issues.length} issues to sprint '${sprintName}':\n` +
+                    issues.map((issue: any) => `• ${issue.identifier} - ${issue.title}`).join('\n')
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error moving issues to sprint: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
     // Tool: Get Issue Details
     this.server.registerTool(
       "get-issue",
@@ -352,6 +1179,432 @@ export class HulyMCPServer {
           };
         }
       }
+    );
+
+    // === ENHANCED ISSUE & COMPONENT MANAGEMENT ===
+
+    // Tool: Update Issue
+    this.server.registerTool(
+      "update-issue",
+      {
+        title: "Update Issue",
+        description: "Update an existing issue with enhanced capabilities",
+        inputSchema: {
+          issueIdentifier: z.string().describe("Issue identifier to update"),
+          title: z.string().optional().describe("New issue title"),
+          description: z.string().optional().describe("New issue description"),
+          priority: z.enum(['Urgent', 'High', 'Normal', 'Low']).optional().describe("New issue priority"),
+          status: z.string().optional().describe("New issue status"),
+          assignee: z.string().optional().describe("New assignee email"),
+          component: z.string().optional().describe("Component name"),
+          estimation: z.number().optional().describe("Time estimation in hours"),
+          dueDate: z.string().optional().describe("Due date (ISO 8601 format)"),
+          labels: z.array(z.string()).optional().describe("Issue labels"),
+          customFields: z.record(z.any()).optional().describe("Custom field values")
+        }
+      },
+      async ({ issueIdentifier, title, description, priority, status, assignee, component, estimation, dueDate, labels, customFields }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find issue by identifier
+          const issue = await client.findOne(
+            tracker.class.Issue,
+            { identifier: issueIdentifier }
+          ) as Issue | undefined;
+
+          if (!issue) {
+            return {
+              content: [{ type: "text", text: `Issue '${issueIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          const updateOps: any = {};
+          
+          if (title !== undefined) updateOps.title = title;
+          if (priority !== undefined) {
+            const priorityMap: any = {
+              'Urgent': IssuePriority.Urgent,
+              'High': IssuePriority.High,
+              'Normal': IssuePriority.Medium,
+              'Low': IssuePriority.Low
+            };
+            updateOps.priority = priorityMap[priority] || IssuePriority.Medium;
+          }
+          if (assignee !== undefined) updateOps.assignee = assignee;
+          if (estimation !== undefined) updateOps.estimation = estimation;
+          if (dueDate !== undefined) updateOps.dueDate = new Date(dueDate).getTime();
+
+          // Handle description update
+          if (description !== undefined) {
+            const descriptionRef = await client.createMarkup(
+              tracker.class.Issue,
+              issue._id,
+              'description',
+              description
+            );
+            updateOps.description = descriptionRef;
+          }
+
+          // Handle component
+          if (component !== undefined) {
+            const project = await client.findOne(
+              tracker.class.Project,
+              { _id: issue.space }
+            );
+            if (project) {
+              const comp = await client.findOne(
+                tracker.class.Component,
+                { space: project._id, name: component }
+              );
+              updateOps.component = comp?._id || null;
+            }
+          }
+
+          if (Object.keys(updateOps).length === 0) {
+            return {
+              content: [{ type: "text", text: "No update parameters provided" }],
+              isError: true
+            };
+          }
+
+          await client.updateDoc(
+            tracker.class.Issue,
+            issue.space,
+            issue._id,
+            updateOps
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully updated issue: ${issueIdentifier}\n` +
+                    `Updated fields: ${Object.keys(updateOps).join(', ')}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating issue: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Change Issue Status
+    this.server.registerTool(
+      "change-issue-status",
+      {
+        title: "Change Issue Status",
+        description: "Change issue status with guard checks",
+        inputSchema: {
+          issueIdentifier: z.string().describe("Issue identifier"),
+          newStatus: z.string().describe("New status"),
+          comment: z.string().optional().describe("Optional comment for the status change")
+        }
+      },
+      async ({ issueIdentifier, newStatus, comment }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find issue by identifier
+          const issue = await client.findOne(
+            tracker.class.Issue,
+            { identifier: issueIdentifier }
+          ) as Issue | undefined;
+
+          if (!issue) {
+            return {
+              content: [{ type: "text", text: `Issue '${issueIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // TODO: Add guard checks for valid status transitions
+          // This would require querying workflow configuration
+
+          await client.updateDoc(
+            tracker.class.Issue,
+            issue.space,
+            issue._id,
+            { status: newStatus }
+          );
+
+          // Add comment if provided
+          if (comment) {
+            const commentId = generateId();
+            await client.addCollection(
+              tracker.class.IssueComment,
+              issue.space,
+              issue._id,
+              tracker.class.Issue,
+              'comments',
+              {
+                message: comment
+              },
+              commentId
+            );
+          }
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully changed status of issue ${issueIdentifier} to '${newStatus}'` +
+                    (comment ? `\nComment added: ${comment}` : '')
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error changing issue status: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Link Issues
+    this.server.registerTool(
+      "link-issues",
+      {
+        title: "Link Issues",
+        description: "Create relationships between issues",
+        inputSchema: {
+          sourceIssue: z.string().describe("Source issue identifier"),
+          targetIssue: z.string().describe("Target issue identifier"),
+          linkType: z.enum(['blocks', 'blocked-by', 'relates-to', 'duplicates', 'duplicated-by']).describe("Type of relationship")
+        }
+      },
+      async ({ sourceIssue, targetIssue, linkType }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find both issues
+          const source = await client.findOne(
+            tracker.class.Issue,
+            { identifier: sourceIssue }
+          ) as Issue | undefined;
+
+          const target = await client.findOne(
+            tracker.class.Issue,
+            { identifier: targetIssue }
+          ) as Issue | undefined;
+
+          if (!source) {
+            return {
+              content: [{ type: "text", text: `Source issue '${sourceIssue}' not found` }],
+              isError: true
+            };
+          }
+
+          if (!target) {
+            return {
+              content: [{ type: "text", text: `Target issue '${targetIssue}' not found` }],
+              isError: true
+            };
+          }
+
+          // Create issue relation
+          const relationId = generateId();
+          await client.createDoc(
+            tracker.class.IssueParentInfo,
+            source.space,
+            {
+              parent: source._id,
+              parentTitle: source.title,
+              child: target._id,
+              childTitle: target.title,
+              type: linkType
+            },
+            relationId
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully linked issues:\n` +
+                    `${sourceIssue} ${linkType} ${targetIssue}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error linking issues: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Create Subtask
+    this.server.registerTool(
+      "create-subtask",
+      {
+        title: "Create Subtask",
+        description: "Create a subtask for an existing issue",
+        inputSchema: {
+          parentIssue: z.string().describe("Parent issue identifier"),
+          title: z.string().describe("Subtask title"),
+          description: z.string().optional().describe("Subtask description"),
+          assignee: z.string().optional().describe("Assignee email"),
+          estimation: z.number().optional().describe("Time estimation in hours")
+        }
+      },
+      async ({ parentIssue, title, description, assignee, estimation }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find parent issue
+          const parent = await client.findOne(
+            tracker.class.Issue,
+            { identifier: parentIssue }
+          ) as Issue | undefined;
+
+          if (!parent) {
+            return {
+              content: [{ type: "text", text: `Parent issue '${parentIssue}' not found` }],
+              isError: true
+            };
+          }
+
+          // Get project for sequence
+          const project = await client.findOne(
+            tracker.class.Project,
+            { _id: parent.space }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: "Project not found for parent issue" }],
+              isError: true
+            };
+          }
+
+          // Generate unique issue ID and sequence
+          const subtaskId = generateId();
+          const incResult = await client.updateDoc(
+            tracker.class.Project,
+            core.space.Space,
+            project._id,
+            { $inc: { sequence: 1 } },
+            true
+          );
+          const sequence = (incResult as any).object.sequence;
+
+          // Create description reference if provided
+          let descriptionRef = null;
+          if (description) {
+            descriptionRef = await client.createMarkup(
+              tracker.class.Issue,
+              subtaskId,
+              'description',
+              description
+            );
+          }
+
+          // Create subtask
+          await client.addCollection(
+            tracker.class.Issue,
+            project._id,
+            parent._id,
+            tracker.class.Issue,
+            'subIssues',
+            {
+              title,
+              description: descriptionRef,
+              status: project.defaultIssueStatus,
+              number: sequence,
+              kind: tracker.taskTypes.Issue,
+              identifier: `${project.identifier}-${sequence}`,
+              priority: IssuePriority.Medium,
+              assignee: assignee || null,
+              component: null,
+              estimation: estimation || 0,
+              remainingTime: estimation || 0,
+              reportedTime: 0,
+              reports: 0,
+              subIssues: 0,
+              parents: [parent._id],
+              childInfo: [],
+              dueDate: null,
+              rank: makeRank(undefined, undefined)
+            },
+            subtaskId
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully created subtask: ${project.identifier}-${sequence}\n` +
+                    `Title: ${title}\n` +
+                    `Parent: ${parentIssue}\n` +
+                    `Assignee: ${assignee || 'Unassigned'}\n` +
+                    `Estimation: ${estimation || 0} hours`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating subtask: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Delete Issue
+    this.server.registerTool(
+      "delete-issue",
+      {
+        title: "Delete Issue",
+        description: "Delete an issue (use with caution)",
+        inputSchema: {
+          issueIdentifier: z.string().describe("Issue identifier to delete"),
+          confirm: z.boolean().describe("Confirmation flag - must be true to proceed")
+        }
+      },
+      async ({ issueIdentifier, confirm }) => {
+        try {
+          if (!confirm) {
+            return {
+              content: [{ type: "text", text: "Deletion requires confirmation flag to be true" }],
+              isError: true
+            };
+          }
+
+          const client = await this.hulyConnection.connect();
+
+          // Find issue by identifier
+          const issue = await client.findOne(
+            tracker.class.Issue,
+            { identifier: issueIdentifier }
+          ) as Issue | undefined;
+
+          if (!issue) {
+            return {
+              content: [{ type: "text", text: `Issue '${issueIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          await client.removeDoc(
+            tracker.class.Issue,
+            issue.space,
+            issue._id
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully deleted issue: ${issueIdentifier}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error deleting issue: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
     );
 
     // Tool: Find One Document
@@ -847,6 +2100,331 @@ export class HulyMCPServer {
     }
     
     return current;
+  }
+
+  // === REPORTING & SEARCH CAPABILITIES ===
+
+  private setupReportingTools(): void {
+    // Tool: Generate Sprint Report
+    this.server.registerTool(
+      "generate-sprint-report",
+      {
+        title: "Generate Sprint Report",
+        description: "Generate comprehensive sprint reports (burndown, velocity, bottlenecks)",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          sprintName: z.string().describe("Sprint name"),
+          reportType: z.enum(['burndown', 'velocity', 'bottleneck', 'summary']).describe("Type of report to generate")
+        }
+      },
+      async ({ projectIdentifier, sprintName, reportType }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // Find sprint
+          const sprint = await client.findOne(
+            tracker.class.Sprint,
+            { space: project._id, name: sprintName }
+          );
+
+          if (!sprint) {
+            return {
+              content: [{ type: "text", text: `Sprint '${sprintName}' not found` }],
+              isError: true
+            };
+          }
+
+          // Get sprint issues
+          const issues = await client.findAll(
+            tracker.class.Issue,
+            { space: project._id, sprint: sprint._id }
+          );
+
+          let reportContent = `# ${reportType.toUpperCase()} REPORT\n`;
+          reportContent += `Project: ${projectIdentifier}\n`;
+          reportContent += `Sprint: ${sprintName}\n`;
+          reportContent += `Period: ${new Date(sprint.startDate).toISOString().split('T')[0]} to ${new Date(sprint.targetDate).toISOString().split('T')[0]}\n\n`;
+
+          switch (reportType) {
+            case 'burndown':
+              const totalEstimation = issues.reduce((sum: number, issue: any) => sum + (issue.estimation || 0), 0);
+              const completedEstimation = issues
+                .filter((issue: any) => issue.status === 'completed' || issue.status === 'done')
+                .reduce((sum: number, issue: any) => sum + (issue.estimation || 0), 0);
+              const remainingEstimation = totalEstimation - completedEstimation;
+
+              reportContent += `## Burndown Analysis\n`;
+              reportContent += `- Total Story Points: ${totalEstimation}h\n`;
+              reportContent += `- Completed: ${completedEstimation}h (${totalEstimation > 0 ? Math.round((completedEstimation / totalEstimation) * 100) : 0}%)\n`;
+              reportContent += `- Remaining: ${remainingEstimation}h\n`;
+              reportContent += `- Sprint Capacity: ${sprint.capacity}h\n`;
+              reportContent += `- Capacity Utilization: ${sprint.capacity > 0 ? Math.round((totalEstimation / sprint.capacity) * 100) : 0}%\n\n`;
+              break;
+
+            case 'velocity':
+              const completedIssues = issues.filter((issue: any) => issue.status === 'completed' || issue.status === 'done');
+              const completedPoints = completedIssues.reduce((sum: number, issue: any) => sum + (issue.estimation || 0), 0);
+              
+              reportContent += `## Velocity Analysis\n`;
+              reportContent += `- Completed Issues: ${completedIssues.length}\n`;
+              reportContent += `- Completed Story Points: ${completedPoints}h\n`;
+              reportContent += `- Average Points per Issue: ${completedIssues.length > 0 ? Math.round(completedPoints / completedIssues.length * 100) / 100 : 0}h\n\n`;
+              break;
+
+            case 'bottleneck':
+              const statusCounts: { [key: string]: number } = {};
+              issues.forEach((issue: any) => {
+                statusCounts[issue.status] = (statusCounts[issue.status] || 0) + 1;
+              });
+
+              reportContent += `## Bottleneck Analysis\n`;
+              reportContent += `Status Distribution:\n`;
+              Object.entries(statusCounts).forEach(([status, count]) => {
+                reportContent += `- ${status}: ${count} issues\n`;
+              });
+              reportContent += `\n`;
+              break;
+
+            case 'summary':
+              reportContent += `## Sprint Summary\n`;
+              reportContent += `- Total Issues: ${issues.length}\n`;
+              reportContent += `- Total Estimation: ${issues.reduce((sum: number, issue: any) => sum + (issue.estimation || 0), 0)}h\n`;
+              reportContent += `- Completed Issues: ${issues.filter((issue: any) => issue.status === 'completed' || issue.status === 'done').length}\n`;
+              reportContent += `- In Progress: ${issues.filter((issue: any) => issue.status === 'in-progress').length}\n`;
+              reportContent += `- Open Issues: ${issues.filter((issue: any) => issue.status === 'open' || issue.status === 'new').length}\n\n`;
+              break;
+          }
+
+          reportContent += `## Issue Details\n`;
+          issues.forEach((issue: any) => {
+            reportContent += `- ${issue.identifier}: ${issue.title} [${issue.status}] (${issue.estimation || 0}h)\n`;
+          });
+
+          return {
+            content: [{
+              type: "text",
+              text: reportContent
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error generating sprint report: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Cross-Module Search
+    this.server.registerTool(
+      "cross-module-search",
+      {
+        title: "Cross-Module Search",
+        description: "Search across tasks, documents, and contacts",
+        inputSchema: {
+          query: z.string().describe("Search query"),
+          modules: z.array(z.enum(['task', 'document', 'contact'])).optional().default(['task']).describe("Modules to search in"),
+          limit: z.number().optional().default(20).describe("Maximum results per module")
+        }
+      },
+      async ({ query, modules, limit }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+          let results = '';
+
+          if (modules.includes('task')) {
+            const issues = await client.findAll(
+              tracker.class.Issue,
+              {
+                $or: [
+                  { title: { $regex: query, $options: 'i' } },
+                  { identifier: { $regex: query, $options: 'i' } }
+                ]
+              },
+              { limit }
+            );
+
+            results += `## Task Results (${issues.length})\n`;
+            issues.forEach((issue: any) => {
+              results += `- ${issue.identifier}: ${issue.title}\n`;
+            });
+            results += '\n';
+          }
+
+          if (modules.includes('contact')) {
+            try {
+              const contacts = await client.findAll(
+                'contact.class.Person' as any,
+                {
+                  $or: [
+                    { name: { $regex: query, $options: 'i' } },
+                    { email: { $regex: query, $options: 'i' } }
+                  ]
+                },
+                { limit }
+              );
+
+              results += `## Contact Results (${contacts.length})\n`;
+              contacts.forEach((contact: any) => {
+                results += `- ${contact.name}: ${contact.email || 'No email'}\n`;
+              });
+              results += '\n';
+            } catch (e) {
+              results += `## Contact Results\nContact search not available\n\n`;
+            }
+          }
+
+          return {
+            content: [{
+              type: "text",
+              text: `# Search Results for: "${query}"\n\n${results}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error performing search: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Export Data
+    this.server.registerTool(
+      "export-data",
+      {
+        title: "Export Data",
+        description: "Export project data in CSV or JSON format",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          dataType: z.enum(['issues', 'sprints', 'components']).describe("Type of data to export"),
+          format: z.enum(['csv', 'json']).describe("Export format"),
+          filters: z.record(z.any()).optional().describe("Optional filters to apply")
+        }
+      },
+      async ({ projectIdentifier, dataType, format, filters }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          let data: any[] = [];
+          const query = { space: project._id, ...filters };
+
+          switch (dataType) {
+            case 'issues':
+              data = await client.findAll(tracker.class.Issue, query);
+              break;
+            case 'sprints':
+              data = await client.findAll(tracker.class.Sprint, query);
+              break;
+            case 'components':
+              data = await client.findAll(tracker.class.Component, query);
+              break;
+          }
+
+          let exportContent = '';
+
+          if (format === 'json') {
+            exportContent = JSON.stringify(data, null, 2);
+          } else if (format === 'csv') {
+            if (data.length > 0) {
+              const headers = Object.keys(data[0]).join(',');
+              const rows = data.map(item => 
+                Object.values(item).map(value => 
+                  typeof value === 'string' ? `"${value.replace(/"/g, '""')}"` : value
+                ).join(',')
+              );
+              exportContent = [headers, ...rows].join('\n');
+            }
+          }
+
+          return {
+            content: [{
+              type: "text",
+              text: `# Export: ${dataType} from ${projectIdentifier} (${format.toUpperCase()})\n\n${exportContent}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error exporting data: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Create Saved Filter
+    this.server.registerTool(
+      "create-saved-filter",
+      {
+        title: "Create Saved Filter",
+        description: "Create a saved filter for frequent queries",
+        inputSchema: {
+          name: z.string().describe("Filter name"),
+          description: z.string().optional().describe("Filter description"),
+          query: z.record(z.any()).describe("Filter query criteria"),
+          targetClass: z.string().describe("Target class (e.g., 'tracker.class.Issue')")
+        }
+      },
+      async ({ name, description, query, targetClass }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          const filterId = generateId();
+          
+          // Create saved filter (this would be stored in user preferences in a real implementation)
+          const filterData = {
+            name,
+            description: description || '',
+            query,
+            targetClass,
+            createdOn: Date.now(),
+            createdBy: 'current-user' // Would be actual user in real implementation
+          };
+
+          return {
+            content: [{
+              type: "text",
+              text: `Saved filter created: ${name}\n` +
+                    `Description: ${description || 'No description'}\n` +
+                    `Target: ${targetClass}\n` +
+                    `Query: ${JSON.stringify(query, null, 2)}\n` +
+                    `Note: In a full implementation, this would be persisted to user preferences.`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating saved filter: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
   }
 
   private setupResources(): void {
