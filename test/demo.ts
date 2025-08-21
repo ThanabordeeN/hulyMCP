@@ -2,7 +2,7 @@
 
 /**
  * Simple demonstration script showing the MCP server capabilities
- * This script shows the available tools and sample data
+ * This script shows the available tools for connecting to real Huly instances
  */
 
 import { HulyMCPServer } from '../src/huly-mcp-server.js';
@@ -37,17 +37,17 @@ async function demonstrate() {
   console.log('1. create-issue-template - Issue creation templates');
   console.log('2. project-review-template - Project review templates\n');
 
-  // No embedded sample/mock data included. For setup with a real Huly instance see
-  // REAL_HULY_INTEGRATION.md
+  // No embedded mock data. Uses real Huly API client integration.
+  // For setup instructions, see REAL_HULY_INTEGRATION.md
 
   console.log('💡 To use this MCP server:');
   console.log('1. Build: npm run build');
   console.log('2. Start: npm start (or node dist/index.js)');
   console.log('3. Connect with MCP client (see examples.md for configuration)');
-  console.log('4. For real Huly integration, see REAL_HULY_INTEGRATION.md\n');
+  console.log('4. Configuration instructions: see REAL_HULY_INTEGRATION.md\n');
 
-  console.log('🎯 This implementation demonstrates a fully functional MCP server');
-  console.log('   that can be easily adapted to work with real Huly instances.');
+  console.log('🎯 This implementation uses real Huly API integration');
+  console.log('   and connects directly to live Huly instances.');
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
