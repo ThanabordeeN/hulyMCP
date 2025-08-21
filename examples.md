@@ -1,6 +1,6 @@
 # Example MCP Client Configuration
 
-This document shows how to configure various MCP clients to use the Huly MCP Server with comprehensive project management capabilities.
+This document shows how to configure various MCP clients to use the enhanced Huly MCP Server with Jira-compatible tools for comprehensive project management with advanced security features.
 
 ## Claude Desktop Configuration
 
