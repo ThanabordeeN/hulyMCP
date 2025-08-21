@@ -6,7 +6,86 @@ This document shows how to configure various MCP clients to use the Huly MCP Ser
 
 Add the following to your Claude Desktop MCP configuration file:
 
-### With local Huly server:
+### Using npx (Recommended - No installation required)
+
+**With local Huly server:**
+```json
+{
+  "mcpServers": {
+    "huly": {
+      "command": "npx",
+      "args": ["-y", "huly-mcp-server"],
+      "env": {
+        "HULY_URL": "http://localhost:8087",
+        "HULY_WORKSPACE": "ws1",
+        "HULY_EMAIL": "user1",
+        "HULY_PASSWORD": "1234"
+      }
+    }
+  }
+}
+```
+
+**With Huly Cloud:**
+```json
+{
+  "mcpServers": {
+    "huly": {
+      "command": "npx",
+      "args": ["-y", "huly-mcp-server"],
+      "env": {
+        "HULY_URL": "https://app.huly.io",
+        "HULY_WORKSPACE": "your-workspace",
+        "HULY_TOKEN": "your-huly-token"
+      }
+    }
+  }
+}
+```
+
+### Using global installation
+
+First install globally:
+```bash
+npm install -g huly-mcp-server
+```
+
+**With local Huly server:**
+```json
+{
+  "mcpServers": {
+    "huly": {
+      "command": "huly-mcp-server",
+      "env": {
+        "HULY_URL": "http://localhost:8087",
+        "HULY_WORKSPACE": "ws1",
+        "HULY_EMAIL": "user1",
+        "HULY_PASSWORD": "1234"
+      }
+    }
+  }
+}
+```
+
+**With Huly Cloud:**
+```json
+{
+  "mcpServers": {
+    "huly": {
+      "command": "huly-mcp-server",
+      "env": {
+        "HULY_URL": "https://app.huly.io",
+        "HULY_WORKSPACE": "your-workspace",
+        "HULY_TOKEN": "your-huly-token"
+      }
+    }
+  }
+}
+```
+
+### Using local development build
+
+**With local Huly server:**
 ```json
 {
   "mcpServers": {
@@ -24,7 +103,7 @@ Add the following to your Claude Desktop MCP configuration file:
 }
 ```
 
-### With Huly Cloud:
+**With Huly Cloud:**
 ```json
 {
   "mcpServers": {
@@ -45,6 +124,12 @@ Add the following to your Claude Desktop MCP configuration file:
 
 You can test the server using the MCP Inspector:
 
+**With npx (recommended):**
+```bash
+npx @modelcontextprotocol/inspector npx -y huly-mcp-server
+```
+
+**With local build:**
 ```bash
 npx @modelcontextprotocol/inspector node dist/index.js
 ```

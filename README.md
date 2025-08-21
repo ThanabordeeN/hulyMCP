@@ -20,8 +20,27 @@ An MCP (Model Context Protocol) server implementation that provides access to Hu
 
 ## Installation
 
+### Using npx (Recommended)
+
+No installation required! You can run the MCP server directly using npx:
+
 ```bash
+npx -y huly-mcp-server
+```
+
+### Global Installation
+
+```bash
+npm install -g huly-mcp-server
+```
+
+### Development Installation
+
+```bash
+git clone https://github.com/ThanabordeeN/hulyMCP.git
+cd hulyMCP
 npm install
+npm run build
 ```
 
 ## Configuration
@@ -52,6 +71,12 @@ HULY_PASSWORD=your_password
 
 ## Usage
 
+### Running directly with npx
+
+```bash
+npx -y huly-mcp-server
+```
+
 ### Development Mode
 ```bash
 npm run dev
@@ -68,6 +93,54 @@ npm start
 This server communicates via stdin/stdout using the MCP protocol. You can integrate it with any MCP-compatible client.
 
 #### Example with Claude Desktop
+
+**Option 1: Using npx (Recommended - No installation required)**
+
+Add to your Claude Desktop MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "huly": {
+      "command": "npx",
+      "args": ["-y", "huly-mcp-server"],
+      "env": {
+        "HULY_URL": "http://localhost:8087",
+        "HULY_WORKSPACE": "ws1",
+        "HULY_EMAIL": "user1",
+        "HULY_PASSWORD": "1234"
+      }
+    }
+  }
+}
+```
+
+**Option 2: Local installation**
+
+First install the package:
+```bash
+npm install -g huly-mcp-server
+```
+
+Then add to your Claude Desktop MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "huly": {
+      "command": "huly-mcp-server",
+      "env": {
+        "HULY_URL": "http://localhost:8087",
+        "HULY_WORKSPACE": "ws1",
+        "HULY_EMAIL": "user1",
+        "HULY_PASSWORD": "1234"
+      }
+    }
+  }
+}
+```
+
+**Option 3: Development/local build**
 
 Add to your Claude Desktop MCP configuration:
 

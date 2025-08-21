@@ -4,12 +4,22 @@
   "description": "MCP Server implementation for Huly Platform API",
   "main": "dist/index.js",
   "type": "module",
+  "bin": {
+    "huly-mcp-server": "dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "examples.md",
+    "REAL_HULY_INTEGRATION.md"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "demo": "tsx test/demo.ts",
-    "test": "echo \"Run 'npm run demo' to see server capabilities\" && npm run demo"
+    "test": "echo \"Run 'npm run demo' to see server capabilities\" && npm run demo",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "mcp",
