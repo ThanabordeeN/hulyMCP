@@ -1,5 +1,9 @@
-import { connect, type PlatformClient, type ConnectOptions } from '@hcengineering/api-client';
+import apiClientPkg from '@hcengineering/api-client';
+import type { PlatformClient, ConnectOptions } from '@hcengineering/api-client';
 import { HulyConfig, defaultConfig } from './config.js';
+
+// Extract connect function from CommonJS module
+const connect = (apiClientPkg as any).connect;
 
 export class HulyConnection {
   private client: PlatformClient | null = null;
@@ -34,6 +38,7 @@ export class HulyConnection {
 
     try {
       this.client = await connect(this.config.url, options);
+      console.info('[HulyConnection] Connected to', this.config.url, 'workspace=', this.config.workspace);
       return this.client;
     } catch (error) {
       throw new Error(`Failed to connect to Huly: ${error instanceof Error ? error.message : String(error)}`);
@@ -42,8 +47,9 @@ export class HulyConnection {
 
   async disconnect(): Promise<void> {
     if (this.client) {
-      await this.client.close();
-      this.client = null;
+  await this.client.close();
+  this.client = null;
+  console.info('[HulyConnection] Disconnected');
     }
   }
 
@@ -56,5 +62,22 @@ export class HulyConnection {
 
   isConnected(): boolean {
     return this.client !== null;
+  }
+
+  /**
+   * Ping the server with a lightweight operation to verify the connection.
+   * Returns true when the client is connected and responds, false otherwise.
+   */
+  async ping(timeoutMs = 5000): Promise<boolean> {
+    if (!this.client) return false;
+    try {
+      // Use a lightweight call getModel() to verify connection
+      const p = Promise.resolve().then(() => { this.client!.getModel(); return true; });
+      const race = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), timeoutMs));
+      const res = await Promise.race([p.catch(() => false), race]);
+      return Boolean(res);
+    } catch (_e) {
+      return false;
+    }
   }
 }

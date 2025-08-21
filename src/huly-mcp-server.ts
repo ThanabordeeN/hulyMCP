@@ -3,11 +3,27 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { HulyConnection } from "./huly-connection.js";
 import { HulyConfig } from "./config.js";
-import { SortingOrder, generateId, type Ref, type WithLookup } from '@hcengineering/core';
-import core from '@hcengineering/core';
-import tracker, { type Issue, type Project, IssuePriority } from '@hcengineering/tracker';
-import task from '@hcengineering/task';
-import { makeRank } from '@hcengineering/rank';
+
+// CommonJS imports for Huly packages
+import corePkg from '@hcengineering/core';
+import trackerPkg from '@hcengineering/tracker';
+import taskPkg from '@hcengineering/task';
+import rankPkg from '@hcengineering/rank';
+
+// Extract named exports from CommonJS modules with type assertion
+const SortingOrder = (corePkg as any).SortingOrder;
+const generateId = (corePkg as any).generateId;
+const IssuePriority = (trackerPkg as any).IssuePriority;
+const makeRank = (rankPkg as any).makeRank;
+
+// Use default exports
+const core = corePkg;
+const tracker = trackerPkg;
+const task = taskPkg;
+
+// Type-only imports
+import type { Ref, WithLookup } from '@hcengineering/core';
+import type { Issue, Project } from '@hcengineering/tracker';
 
 export class HulyMCPServer {
   private server: McpServer;
@@ -174,7 +190,7 @@ export class HulyMCPServer {
           }
 
           // Map priority string to IssuePriority enum
-          const priorityMap: { [key: string]: IssuePriority } = {
+          const priorityMap: { [key: string]: any } = {
             'Urgent': IssuePriority.Urgent,
             'High': IssuePriority.High,
             'Normal': IssuePriority.Medium,
