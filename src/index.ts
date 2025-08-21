@@ -2,6 +2,8 @@
 
 import { HulyMCPServer } from './huly-mcp-server.js';
 import { HulyConfig } from './config.js';
+import { fileURLToPath } from 'url';
+import path from 'path';
 
 function loadConfig(): HulyConfig {
   const config: HulyConfig = {
@@ -58,7 +60,23 @@ async function main() {
   }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// Use a normalized, platform-safe comparison to determine whether this file
+// was invoked directly. Make the check permissive so npm shims and Windows
+// path formats are handled (compare absolute paths, basenames, and suffixes).
+const entryScript = process.argv[1] ? path.resolve(process.argv[1]) : '';
+const thisFile = path.resolve(fileURLToPath(import.meta.url));
+const entryBasename = entryScript ? path.basename(entryScript) : '';
+const thisBasename = path.basename(thisFile);
+const invokedDirectly = Boolean(
+  entryScript && (
+    entryScript === thisFile ||
+    entryBasename === thisBasename ||
+    thisFile.endsWith(path.sep + entryBasename) ||
+    entryScript.endsWith(thisBasename)
+  )
+);
+
+if (invokedDirectly) {
   main().catch((error) => {
     console.error('Unhandled error:', error);
     process.exit(1);
