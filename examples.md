@@ -226,6 +226,53 @@ Delete a component (requires confirmation).
 }
 ```
 
+### Workflow & Issue Type Management
+
+#### configure-workflow
+Configure workflow states and transitions.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "workflowName": "Development Workflow",
+  "states": [
+    {"name": "Open", "category": "open"},
+    {"name": "In Progress", "category": "in-progress"},
+    {"name": "Review", "category": "in-progress"},
+    {"name": "Done", "category": "done"}
+  ],
+  "transitions": [
+    {"from": "Open", "to": "In Progress", "name": "Start Work"},
+    {"from": "In Progress", "to": "Review", "name": "Submit for Review"},
+    {"from": "Review", "to": "Done", "name": "Approve"}
+  ]
+}
+```
+
+#### create-issue-type
+Create custom issue types with templates.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "name": "Bug",
+  "description": "Software defect",
+  "icon": "bug",
+  "color": "#e74c3c",
+  "defaultTemplate": {
+    "title": "Bug: ",
+    "description": "**Steps to reproduce:**\n\n**Expected behavior:**\n\n**Actual behavior:**",
+    "priority": "High"
+  }
+}
+```
+
+#### list-issue-types
+List available issue types.
+```json
+{
+  "projectIdentifier": "PROJ"
+}
+```
+
 ### Sprint & Project Planning
 
 #### create-sprint
@@ -359,6 +406,128 @@ Get detailed information about a specific issue.
 ```json
 {
   "issueIdentifier": "PROJ-123"
+}
+```
+
+### Epic & Feature Management
+
+#### create-epic
+Create a new epic for grouping features.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "title": "User Authentication System",
+  "description": "Complete user authentication and authorization system",
+  "goals": ["Secure login", "Role-based access", "Session management"],
+  "targetQuarter": "Q1 2024",
+  "priority": "High"
+}
+```
+
+#### create-feature
+Create a feature linked to an epic.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "title": "Login Page",
+  "description": "User login interface",
+  "epicIdentifier": "PROJ-123",
+  "acceptanceCriteria": ["Username/password validation", "Remember me option", "Forgot password link"],
+  "priority": "High"
+}
+```
+
+#### link-issue-to-epic
+Link existing issues to epics.
+```json
+{
+  "issueIdentifier": "PROJ-125",
+  "epicIdentifier": "PROJ-123"
+}
+```
+
+### Backlog Grooming
+
+#### update-issue-priority
+Update issue priority with reasoning.
+```json
+{
+  "issueIdentifier": "PROJ-123",
+  "priority": "Urgent",
+  "reason": "Customer reported critical bug affecting production"
+}
+```
+
+#### bulk-update-issues
+Update multiple issues at once.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "filters": {"status": "open", "priority": "Low"},
+  "updates": {"priority": "Medium"},
+  "limit": 20
+}
+```
+
+### Auto-Assignment & Roadmap
+
+#### create-auto-assignment-rule
+Create automatic assignment rules.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "ruleName": "Frontend Component Issues",
+  "criteria": {
+    "component": "Frontend",
+    "keywords": ["ui", "frontend", "interface"],
+    "issueType": "Bug"
+  },
+  "assignee": "frontend-dev@example.com",
+  "active": true
+}
+```
+
+#### create-roadmap
+Create quarterly roadmaps.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "quarter": "Q1 2024",
+  "goals": [
+    {
+      "title": "Complete Authentication System",
+      "description": "Implement secure user authentication",
+      "priority": "High",
+      "epicIdentifier": "PROJ-123"
+    }
+  ],
+  "dependencies": [
+    {"from": "Authentication", "to": "User Profiles", "type": "blocks"}
+  ],
+  "risks": [
+    {
+      "description": "Third-party authentication service availability",
+      "impact": "High",
+      "mitigation": "Implement fallback authentication method"
+    }
+  ]
+}
+```
+
+#### update-roadmap-progress
+Update progress on roadmap goals.
+```json
+{
+  "projectIdentifier": "PROJ",
+  "quarter": "Q1 2024",
+  "goalUpdates": [
+    {
+      "goalTitle": "Complete Authentication System",
+      "progress": 75,
+      "status": "in-progress",
+      "notes": "Login and registration complete, working on password reset"
+    }
+  ]
 }
 ```
 

@@ -516,6 +516,207 @@ export class HulyMCPServer {
       }
     );
 
+    // === WORKFLOW & ISSUE TYPE MANAGEMENT ===
+
+    // Tool: Configure Workflow
+    this.server.registerTool(
+      "configure-workflow",
+      {
+        title: "Configure Workflow",
+        description: "Configure workflow states and transitions for a project",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          workflowName: z.string().describe("Workflow name"),
+          states: z.array(z.object({
+            name: z.string(),
+            category: z.enum(['open', 'in-progress', 'done', 'closed']),
+            color: z.string().optional()
+          })).describe("Workflow states"),
+          transitions: z.array(z.object({
+            from: z.string(),
+            to: z.string(),
+            name: z.string(),
+            guard: z.string().optional()
+          })).describe("Workflow transitions")
+        }
+      },
+      async ({ projectIdentifier, workflowName, states, transitions }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // In a full implementation, this would create workflow states and transitions
+          // For now, we'll simulate the configuration
+          const workflowConfig = {
+            name: workflowName,
+            states,
+            transitions,
+            projectId: project._id,
+            createdOn: Date.now()
+          };
+
+          return {
+            content: [{
+              type: "text",
+              text: `Workflow configured for project ${projectIdentifier}:\n\n` +
+                    `Workflow: ${workflowName}\n` +
+                    `States: ${states.map(s => `${s.name} (${s.category})`).join(', ')}\n` +
+                    `Transitions: ${transitions.length} defined\n\n` +
+                    `Transition Details:\n` +
+                    transitions.map(t => 
+                      `• ${t.from} → ${t.to}: ${t.name}${t.guard ? ` [Guard: ${t.guard}]` : ''}`
+                    ).join('\n') +
+                    `\n\nNote: In a full implementation, this would persist the workflow configuration.`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error configuring workflow: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Create Issue Type
+    this.server.registerTool(
+      "create-issue-type",
+      {
+        title: "Create Issue Type",
+        description: "Create a new issue type with default template",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          name: z.string().describe("Issue type name"),
+          description: z.string().optional().describe("Issue type description"),
+          icon: z.string().optional().describe("Issue type icon"),
+          color: z.string().optional().describe("Issue type color"),
+          defaultTemplate: z.object({
+            title: z.string().optional(),
+            description: z.string().optional(),
+            priority: z.string().optional(),
+            estimation: z.number().optional()
+          }).optional().describe("Default template for this issue type")
+        }
+      },
+      async ({ projectIdentifier, name, description, icon, color, defaultTemplate }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // In a full implementation, this would create an issue type
+          // For now, we'll simulate the creation
+          const issueTypeConfig = {
+            name,
+            description: description || '',
+            icon: icon || 'issue',
+            color: color || '#666666',
+            projectId: project._id,
+            defaultTemplate: defaultTemplate || {},
+            createdOn: Date.now()
+          };
+
+          return {
+            content: [{
+              type: "text",
+              text: `Issue type created for project ${projectIdentifier}:\n\n` +
+                    `Name: ${name}\n` +
+                    `Description: ${description || 'No description'}\n` +
+                    `Icon: ${icon || 'issue'}\n` +
+                    `Color: ${color || '#666666'}\n` +
+                    `Default Template: ${JSON.stringify(defaultTemplate || {}, null, 2)}\n\n` +
+                    `Note: In a full implementation, this would persist the issue type configuration.`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating issue type: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: List Issue Types
+    this.server.registerTool(
+      "list-issue-types",
+      {
+        title: "List Issue Types",
+        description: "List available issue types for a project",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier")
+        }
+      },
+      async ({ projectIdentifier }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // In a full implementation, this would query actual issue types
+          // For now, we'll return standard Huly issue types
+          const standardIssueTypes = [
+            { name: 'Task', description: 'General task', icon: 'task', color: '#3498db' },
+            { name: 'Bug', description: 'Software bug', icon: 'bug', color: '#e74c3c' },
+            { name: 'Feature', description: 'New feature request', icon: 'feature', color: '#2ecc71' },
+            { name: 'Improvement', description: 'Enhancement to existing functionality', icon: 'improvement', color: '#f39c12' },
+            { name: 'Epic', description: 'Large work initiative', icon: 'epic', color: '#9b59b6' }
+          ];
+
+          return {
+            content: [{
+              type: "text",
+              text: `Issue types for project ${projectIdentifier}:\n\n` +
+                    standardIssueTypes.map(type =>
+                      `• ${type.name}: ${type.description}\n` +
+                      `  Icon: ${type.icon}, Color: ${type.color}\n`
+                    ).join('\n') +
+                    `\nNote: In a full implementation, this would show custom issue types configured for the project.`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error listing issue types: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
     // Tool: Create Component
     this.server.registerTool(
       "create-component",
@@ -1126,6 +1327,463 @@ export class HulyMCPServer {
       }
     );
 
+    // === EPIC & FEATURE MANAGEMENT ===
+
+    // Tool: Create Epic
+    this.server.registerTool(
+      "create-epic",
+      {
+        title: "Create Epic",
+        description: "Create a new epic to group related features and tasks",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          title: z.string().describe("Epic title"),
+          description: z.string().optional().describe("Epic description"),
+          goals: z.array(z.string()).optional().describe("Epic goals"),
+          targetQuarter: z.string().optional().describe("Target quarter (e.g., 'Q1 2024')"),
+          priority: z.enum(['Urgent', 'High', 'Normal', 'Low']).optional().default('Normal').describe("Epic priority")
+        }
+      },
+      async ({ projectIdentifier, title, description, goals, targetQuarter, priority }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // Generate epic ID and sequence
+          const epicId = generateId();
+          const incResult = await client.updateDoc(
+            tracker.class.Project,
+            core.space.Space,
+            project._id,
+            { $inc: { sequence: 1 } },
+            true
+          );
+          const sequence = (incResult as any).object.sequence;
+
+          // Create description reference if provided
+          let descriptionRef = null;
+          if (description) {
+            descriptionRef = await client.createMarkup(
+              tracker.class.Issue,
+              epicId,
+              'description',
+              description
+            );
+          }
+
+          const priorityMap: any = {
+            'Urgent': IssuePriority.Urgent,
+            'High': IssuePriority.High,
+            'Normal': IssuePriority.Medium,
+            'Low': IssuePriority.Low
+          };
+
+          // Create epic as a special issue type
+          await client.addCollection(
+            tracker.class.Issue,
+            project._id,
+            project._id,
+            project._class,
+            'issues',
+            {
+              title,
+              description: descriptionRef,
+              status: project.defaultIssueStatus,
+              number: sequence,
+              kind: 'epic', // Custom kind for epics
+              identifier: `${project.identifier}-${sequence}`,
+              priority: priorityMap[priority] || IssuePriority.Medium,
+              assignee: null,
+              component: null,
+              estimation: 0,
+              remainingTime: 0,
+              reportedTime: 0,
+              reports: 0,
+              subIssues: 0,
+              parents: [],
+              childInfo: [],
+              dueDate: null,
+              rank: makeRank(undefined, undefined),
+              // Epic-specific fields (would be custom fields in real implementation)
+              epicGoals: goals || [],
+              targetQuarter: targetQuarter || null
+            },
+            epicId
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully created epic: ${project.identifier}-${sequence}\n` +
+                    `Title: ${title}\n` +
+                    `Priority: ${priority}\n` +
+                    `Target Quarter: ${targetQuarter || 'Not specified'}\n` +
+                    `Goals: ${goals?.join(', ') || 'None specified'}\n` +
+                    `Project: ${projectIdentifier}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating epic: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Create Feature
+    this.server.registerTool(
+      "create-feature",
+      {
+        title: "Create Feature",
+        description: "Create a new feature and optionally link to an epic",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          title: z.string().describe("Feature title"),
+          description: z.string().optional().describe("Feature description"),
+          epicIdentifier: z.string().optional().describe("Parent epic identifier"),
+          acceptanceCriteria: z.array(z.string()).optional().describe("Acceptance criteria"),
+          priority: z.enum(['Urgent', 'High', 'Normal', 'Low']).optional().default('Normal').describe("Feature priority")
+        }
+      },
+      async ({ projectIdentifier, title, description, epicIdentifier, acceptanceCriteria, priority }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          let parentEpic = null;
+          if (epicIdentifier) {
+            parentEpic = await client.findOne(
+              tracker.class.Issue,
+              { identifier: epicIdentifier }
+            );
+            if (!parentEpic) {
+              return {
+                content: [{ type: "text", text: `Epic '${epicIdentifier}' not found` }],
+                isError: true
+              };
+            }
+          }
+
+          // Generate feature ID and sequence
+          const featureId = generateId();
+          const incResult = await client.updateDoc(
+            tracker.class.Project,
+            core.space.Space,
+            project._id,
+            { $inc: { sequence: 1 } },
+            true
+          );
+          const sequence = (incResult as any).object.sequence;
+
+          // Create description reference if provided
+          let descriptionRef = null;
+          if (description) {
+            descriptionRef = await client.createMarkup(
+              tracker.class.Issue,
+              featureId,
+              'description',
+              description
+            );
+          }
+
+          const priorityMap: any = {
+            'Urgent': IssuePriority.Urgent,
+            'High': IssuePriority.High,
+            'Normal': IssuePriority.Medium,
+            'Low': IssuePriority.Low
+          };
+
+          // Create feature as a special issue type
+          await client.addCollection(
+            tracker.class.Issue,
+            project._id,
+            parentEpic?._id || project._id,
+            parentEpic ? tracker.class.Issue : project._class,
+            parentEpic ? 'subIssues' : 'issues',
+            {
+              title,
+              description: descriptionRef,
+              status: project.defaultIssueStatus,
+              number: sequence,
+              kind: 'feature', // Custom kind for features
+              identifier: `${project.identifier}-${sequence}`,
+              priority: priorityMap[priority] || IssuePriority.Medium,
+              assignee: null,
+              component: null,
+              estimation: 0,
+              remainingTime: 0,
+              reportedTime: 0,
+              reports: 0,
+              subIssues: 0,
+              parents: parentEpic ? [parentEpic._id] : [],
+              childInfo: [],
+              dueDate: null,
+              rank: makeRank(undefined, undefined),
+              // Feature-specific fields (would be custom fields in real implementation)
+              acceptanceCriteria: acceptanceCriteria || []
+            },
+            featureId
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully created feature: ${project.identifier}-${sequence}\n` +
+                    `Title: ${title}\n` +
+                    `Priority: ${priority}\n` +
+                    `Parent Epic: ${epicIdentifier || 'None'}\n` +
+                    `Acceptance Criteria: ${acceptanceCriteria?.length || 0} defined\n` +
+                    `Project: ${projectIdentifier}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating feature: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Link Issue to Epic
+    this.server.registerTool(
+      "link-issue-to-epic",
+      {
+        title: "Link Issue to Epic",
+        description: "Link an existing issue to an epic",
+        inputSchema: {
+          issueIdentifier: z.string().describe("Issue identifier to link"),
+          epicIdentifier: z.string().describe("Epic identifier")
+        }
+      },
+      async ({ issueIdentifier, epicIdentifier }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find both issue and epic
+          const issue = await client.findOne(
+            tracker.class.Issue,
+            { identifier: issueIdentifier }
+          ) as Issue | undefined;
+
+          const epic = await client.findOne(
+            tracker.class.Issue,
+            { identifier: epicIdentifier }
+          ) as Issue | undefined;
+
+          if (!issue) {
+            return {
+              content: [{ type: "text", text: `Issue '${issueIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          if (!epic) {
+            return {
+              content: [{ type: "text", text: `Epic '${epicIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // Update issue to have epic as parent
+          await client.updateDoc(
+            tracker.class.Issue,
+            issue.space,
+            issue._id,
+            { parents: [epic._id] }
+          );
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully linked ${issueIdentifier} to epic ${epicIdentifier}`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error linking issue to epic: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // === BACKLOG GROOMING ===
+
+    // Tool: Update Issue Priority
+    this.server.registerTool(
+      "update-issue-priority",
+      {
+        title: "Update Issue Priority",
+        description: "Update issue priority for backlog grooming",
+        inputSchema: {
+          issueIdentifier: z.string().describe("Issue identifier"),
+          priority: z.enum(['Urgent', 'High', 'Normal', 'Low']).describe("New priority"),
+          reason: z.string().optional().describe("Reason for priority change")
+        }
+      },
+      async ({ issueIdentifier, priority, reason }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find issue by identifier
+          const issue = await client.findOne(
+            tracker.class.Issue,
+            { identifier: issueIdentifier }
+          ) as Issue | undefined;
+
+          if (!issue) {
+            return {
+              content: [{ type: "text", text: `Issue '${issueIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          const priorityMap: any = {
+            'Urgent': IssuePriority.Urgent,
+            'High': IssuePriority.High,
+            'Normal': IssuePriority.Medium,
+            'Low': IssuePriority.Low
+          };
+
+          await client.updateDoc(
+            tracker.class.Issue,
+            issue.space,
+            issue._id,
+            { priority: priorityMap[priority] }
+          );
+
+          // Add comment with reason if provided
+          if (reason) {
+            const commentId = generateId();
+            await client.addCollection(
+              tracker.class.IssueComment,
+              issue.space,
+              issue._id,
+              tracker.class.Issue,
+              'comments',
+              {
+                message: `Priority changed to ${priority}: ${reason}`
+              },
+              commentId
+            );
+          }
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully updated priority of ${issueIdentifier} to ${priority}` +
+                    (reason ? `\nReason: ${reason}` : '')
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating issue priority: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Bulk Update Issues
+    this.server.registerTool(
+      "bulk-update-issues",
+      {
+        title: "Bulk Update Issues",
+        description: "Update multiple issues for backlog grooming",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          filters: z.record(z.any()).describe("Filters to select issues"),
+          updates: z.record(z.any()).describe("Updates to apply"),
+          limit: z.number().optional().default(50).describe("Maximum number of issues to update")
+        }
+      },
+      async ({ projectIdentifier, filters, updates, limit }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // Find issues matching filters
+          const query = { space: project._id, ...filters };
+          const issues = await client.findAll(
+            tracker.class.Issue,
+            query,
+            { limit }
+          );
+
+          if (issues.length === 0) {
+            return {
+              content: [{ type: "text", text: "No issues found matching the filters" }],
+              isError: true
+            };
+          }
+
+          // Update each issue
+          for (const issue of issues) {
+            await client.updateDoc(
+              tracker.class.Issue,
+              issue.space,
+              issue._id,
+              updates
+            );
+          }
+
+          return {
+            content: [{
+              type: "text",
+              text: `Successfully updated ${issues.length} issues in project ${projectIdentifier}\n` +
+                    `Filters: ${JSON.stringify(filters, null, 2)}\n` +
+                    `Updates: ${JSON.stringify(updates, null, 2)}\n\n` +
+                    `Updated Issues:\n` +
+                    issues.map((issue: any) => `• ${issue.identifier}: ${issue.title}`).join('\n')
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error bulk updating issues: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
     // Tool: Get Issue Details
     this.server.registerTool(
       "get-issue",
@@ -1605,6 +2263,238 @@ export class HulyMCPServer {
         }
       }
     );
+
+    // === AUTO-ASSIGNMENT & ROADMAP MANAGEMENT ===
+
+    // Tool: Create Auto-Assignment Rule
+    this.server.registerTool(
+      "create-auto-assignment-rule",
+      {
+        title: "Create Auto-Assignment Rule",
+        description: "Create rules for automatic issue assignment",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          ruleName: z.string().describe("Rule name"),
+          criteria: z.object({
+            component: z.string().optional(),
+            keywords: z.array(z.string()).optional(),
+            issueType: z.string().optional(),
+            priority: z.string().optional()
+          }).describe("Assignment criteria"),
+          assignee: z.string().describe("Assignee email"),
+          active: z.boolean().optional().default(true).describe("Whether rule is active")
+        }
+      },
+      async ({ projectIdentifier, ruleName, criteria, assignee, active }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // In a full implementation, this would persist the auto-assignment rule
+          const ruleConfig = {
+            name: ruleName,
+            projectId: project._id,
+            criteria,
+            assignee,
+            active: active !== false,
+            createdOn: Date.now()
+          };
+
+          return {
+            content: [{
+              type: "text",
+              text: `Auto-assignment rule created for project ${projectIdentifier}:\n\n` +
+                    `Rule: ${ruleName}\n` +
+                    `Assignee: ${assignee}\n` +
+                    `Active: ${active !== false}\n` +
+                    `Criteria:\n` +
+                    `  Component: ${criteria.component || 'Any'}\n` +
+                    `  Keywords: ${criteria.keywords?.join(', ') || 'None'}\n` +
+                    `  Issue Type: ${criteria.issueType || 'Any'}\n` +
+                    `  Priority: ${criteria.priority || 'Any'}\n\n` +
+                    `Note: In a full implementation, this would automatically assign issues matching the criteria.`
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating auto-assignment rule: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Create Roadmap
+    this.server.registerTool(
+      "create-roadmap",
+      {
+        title: "Create Roadmap",
+        description: "Create a roadmap for quarterly planning",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          quarter: z.string().describe("Target quarter (e.g., 'Q1 2024')"),
+          goals: z.array(z.object({
+            title: z.string(),
+            description: z.string().optional(),
+            priority: z.enum(['High', 'Medium', 'Low']).optional().default('Medium'),
+            epicIdentifier: z.string().optional()
+          })).describe("Quarterly goals"),
+          dependencies: z.array(z.object({
+            from: z.string(),
+            to: z.string(),
+            type: z.enum(['blocks', 'depends-on']).optional().default('depends-on')
+          })).optional().describe("Goal dependencies"),
+          risks: z.array(z.object({
+            description: z.string(),
+            impact: z.enum(['High', 'Medium', 'Low']).optional().default('Medium'),
+            mitigation: z.string().optional()
+          })).optional().describe("Identified risks")
+        }
+      },
+      async ({ projectIdentifier, quarter, goals, dependencies, risks }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          // In a full implementation, this would create a roadmap document
+          const roadmapConfig = {
+            quarter,
+            projectId: project._id,
+            goals,
+            dependencies: dependencies || [],
+            risks: risks || [],
+            createdOn: Date.now()
+          };
+
+          let roadmapText = `# Roadmap: ${quarter} - ${projectIdentifier}\n\n`;
+          
+          roadmapText += `## Quarterly Goals\n`;
+          goals.forEach((goal, index) => {
+            roadmapText += `${index + 1}. **${goal.title}** (${goal.priority} Priority)\n`;
+            if (goal.description) roadmapText += `   ${goal.description}\n`;
+            if (goal.epicIdentifier) roadmapText += `   Epic: ${goal.epicIdentifier}\n`;
+            roadmapText += '\n';
+          });
+
+          if (dependencies && dependencies.length > 0) {
+            roadmapText += `## Dependencies\n`;
+            dependencies.forEach(dep => {
+              roadmapText += `• ${dep.from} ${dep.type} ${dep.to}\n`;
+            });
+            roadmapText += '\n';
+          }
+
+          if (risks && risks.length > 0) {
+            roadmapText += `## Risks\n`;
+            risks.forEach(risk => {
+              roadmapText += `• **${risk.impact} Impact**: ${risk.description}\n`;
+              if (risk.mitigation) roadmapText += `  Mitigation: ${risk.mitigation}\n`;
+            });
+            roadmapText += '\n';
+          }
+
+          roadmapText += `Note: In a full implementation, this would be persisted and trackable.`;
+
+          return {
+            content: [{
+              type: "text",
+              text: roadmapText
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error creating roadmap: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
+    );
+
+    // Tool: Update Roadmap Progress
+    this.server.registerTool(
+      "update-roadmap-progress",
+      {
+        title: "Update Roadmap Progress",
+        description: "Update progress on roadmap goals",
+        inputSchema: {
+          projectIdentifier: z.string().describe("Project identifier"),
+          quarter: z.string().describe("Quarter to update"),
+          goalUpdates: z.array(z.object({
+            goalTitle: z.string(),
+            progress: z.number().min(0).max(100),
+            status: z.enum(['not-started', 'in-progress', 'completed', 'blocked']).optional(),
+            notes: z.string().optional()
+          })).describe("Goal progress updates")
+        }
+      },
+      async ({ projectIdentifier, quarter, goalUpdates }) => {
+        try {
+          const client = await this.hulyConnection.connect();
+
+          // Find project by identifier
+          const project = await client.findOne(
+            tracker.class.Project,
+            { identifier: projectIdentifier }
+          ) as Project | undefined;
+
+          if (!project) {
+            return {
+              content: [{ type: "text", text: `Project '${projectIdentifier}' not found` }],
+              isError: true
+            };
+          }
+
+          let progressReport = `# Roadmap Progress Update: ${quarter} - ${projectIdentifier}\n\n`;
+          
+          goalUpdates.forEach(update => {
+            progressReport += `## ${update.goalTitle}\n`;
+            progressReport += `Progress: ${update.progress}%\n`;
+            if (update.status) progressReport += `Status: ${update.status}\n`;
+            if (update.notes) progressReport += `Notes: ${update.notes}\n`;
+            progressReport += '\n';
+          });
+
+          const averageProgress = goalUpdates.reduce((sum, update) => sum + update.progress, 0) / goalUpdates.length;
+          progressReport += `**Overall Progress: ${Math.round(averageProgress)}%**\n\n`;
+          progressReport += `Note: In a full implementation, this would update the persisted roadmap.`;
+
+          return {
+            content: [{
+              type: "text",
+              text: progressReport
+            }]
+          };
+        } catch (error) {
+          return {
+            content: [{ type: "text", text: `Error updating roadmap progress: ${error instanceof Error ? error.message : String(error)}` }],
+            isError: true
+          };
+        }
+      }
     );
 
     // Tool: Find One Document
