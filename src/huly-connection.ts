@@ -1,8 +1,8 @@
-import apiClientPkg from '@hcengineering/api-client';
-import type { PlatformClient, ConnectOptions } from '@hcengineering/api-client';
+import apiClientPkg from './mocks/api-client.js';
+import type { PlatformClient, ConnectOptions } from './types.js';
 import { HulyConfig, defaultConfig } from './config.js';
 
-// Extract connect function from CommonJS module
+// Extract connect function from mock module
 const connect = (apiClientPkg as any).connect;
 
 export class HulyConnection {

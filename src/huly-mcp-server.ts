@@ -4,13 +4,13 @@ import { z } from "zod";
 import { HulyConnection } from "./huly-connection.js";
 import { HulyConfig } from "./config.js";
 
-// CommonJS imports for Huly packages
-import corePkg from '@hcengineering/core';
-import trackerPkg from '@hcengineering/tracker';
-import taskPkg from '@hcengineering/task';
-import rankPkg from '@hcengineering/rank';
+// CommonJS imports for Huly packages (using mocks)
+import corePkg from './mocks/core.js';
+import trackerPkg from './mocks/tracker.js';
+import taskPkg from './mocks/task.js';
+import rankPkg from './mocks/rank.js';
 
-// Extract named exports from CommonJS modules with type assertion
+// Extract named exports from mock modules
 const SortingOrder = (corePkg as any).SortingOrder;
 const generateId = (corePkg as any).generateId;
 const IssuePriority = (trackerPkg as any).IssuePriority;
@@ -22,8 +22,11 @@ const tracker = (trackerPkg as any).default || trackerPkg;
 const task = (taskPkg as any).default || taskPkg;
 
 // Type-only imports
-import type { Ref, WithLookup } from '@hcengineering/core';
-import type { Issue, Project } from '@hcengineering/tracker';
+import type { Ref, WithLookup, Issue, Project } from './types.js';
+
+// Local imports for type extensions and utilities
+import { createMarkupPolyfill, getSprintProperty, asRef, createIssueParentInfo } from './utils.js';
+import type { ExtendedDocumentUpdate, ExtendedSpace, RefType, StatusRef } from './types.js';
 
 export class HulyMCPServer {
   private server: McpServer;
@@ -1307,7 +1310,7 @@ export class HulyMCPServer {
               tracker.class.Issue,
               project._id,
               issue._id,
-              { sprint: sprint._id }
+              { sprint: sprint._id } as ExtendedDocumentUpdate
             );
           }
 
@@ -1375,7 +1378,8 @@ export class HulyMCPServer {
           // Create description reference if provided
           let descriptionRef = null;
           if (description) {
-            descriptionRef = await client.createMarkup(
+            descriptionRef = await createMarkupPolyfill(
+              client,
               tracker.class.Issue,
               epicId,
               'description',
@@ -1503,7 +1507,8 @@ export class HulyMCPServer {
           // Create description reference if provided
           let descriptionRef = null;
           if (description) {
-            descriptionRef = await client.createMarkup(
+            descriptionRef = await createMarkupPolyfill(
+              client,
               tracker.class.Issue,
               featureId,
               'description',
@@ -1615,7 +1620,7 @@ export class HulyMCPServer {
             tracker.class.Issue,
             issue.space,
             issue._id,
-            { parents: [epic._id] }
+            { parents: [createIssueParentInfo(epic._id, epic.identifier || 'EPIC', epic.title || epic.name || 'Epic', epic.space)] } as ExtendedDocumentUpdate
           );
 
           return {
@@ -1896,7 +1901,8 @@ export class HulyMCPServer {
 
           // Handle description update
           if (description !== undefined) {
-            const descriptionRef = await client.createMarkup(
+            const descriptionRef = await createMarkupPolyfill(
+              client,
               tracker.class.Issue,
               issue._id,
               'description',
@@ -1914,7 +1920,7 @@ export class HulyMCPServer {
             if (project) {
               const comp = await client.findOne(
                 tracker.class.Component,
-                { space: project._id, name: component }
+                { space: asRef(project._id), name: component }
               );
               updateOps.component = comp?._id || null;
             }
@@ -1986,7 +1992,7 @@ export class HulyMCPServer {
             tracker.class.Issue,
             issue.space,
             issue._id,
-            { status: newStatus }
+            { status: asRef<StatusRef>(newStatus) } as ExtendedDocumentUpdate
           );
 
           // Add comment if provided
@@ -2151,7 +2157,8 @@ export class HulyMCPServer {
           // Create description reference if provided
           let descriptionRef = null;
           if (description) {
-            descriptionRef = await client.createMarkup(
+            descriptionRef = await createMarkupPolyfill(
+              client,
               tracker.class.Issue,
               subtaskId,
               'description',
@@ -3046,7 +3053,7 @@ export class HulyMCPServer {
           let reportContent = `# ${reportType.toUpperCase()} REPORT\n`;
           reportContent += `Project: ${projectIdentifier}\n`;
           reportContent += `Sprint: ${sprintName}\n`;
-          reportContent += `Period: ${new Date(sprint.startDate).toISOString().split('T')[0]} to ${new Date(sprint.targetDate).toISOString().split('T')[0]}\n\n`;
+          reportContent += `Period: ${new Date(getSprintProperty(sprint, 'startDate', Date.now())).toISOString().split('T')[0]} to ${new Date(getSprintProperty(sprint, 'targetDate', Date.now())).toISOString().split('T')[0]}\n\n`;
 
           switch (reportType) {
             case 'burndown':
@@ -3060,8 +3067,8 @@ export class HulyMCPServer {
               reportContent += `- Total Story Points: ${totalEstimation}h\n`;
               reportContent += `- Completed: ${completedEstimation}h (${totalEstimation > 0 ? Math.round((completedEstimation / totalEstimation) * 100) : 0}%)\n`;
               reportContent += `- Remaining: ${remainingEstimation}h\n`;
-              reportContent += `- Sprint Capacity: ${sprint.capacity}h\n`;
-              reportContent += `- Capacity Utilization: ${sprint.capacity > 0 ? Math.round((totalEstimation / sprint.capacity) * 100) : 0}%\n\n`;
+              reportContent += `- Sprint Capacity: ${getSprintProperty(sprint, 'capacity', 0)}h\n`;
+              reportContent += `- Capacity Utilization: ${getSprintProperty(sprint, 'capacity', 0) > 0 ? Math.round((totalEstimation / getSprintProperty(sprint, 'capacity', 1)) * 100) : 0}%\n\n`;
               break;
 
             case 'velocity':
