@@ -41,6 +41,7 @@ async function main() {
     console.error(`Workspace: ${config.workspace}`);
     console.error(`Authentication: ${config.token ? 'Token' : 'Email/Password'}`);
     
+    await server.initialize();
     await server.start();
     console.error('Huly MCP Server started successfully');
 
