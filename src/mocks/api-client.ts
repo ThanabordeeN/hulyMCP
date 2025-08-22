@@ -62,11 +62,11 @@ export class MockPlatformClient implements PlatformClient {
     // Mock implementation
   }
 
-  async createMixin(objectId: any, _class: any, space: any, doc: any): Promise<any> {
+  async createMixin(objectId: any, _class: any, space: any, mixin: any, doc?: any): Promise<any> {
     return { _id: 'mock-mixin-id' };
   }
 
-  async updateMixin(objectId: any, _class: any, space: any, operations: any): Promise<any> {
+  async updateMixin(objectId: any, _class: any, space: any, mixin: any, operations?: any): Promise<any> {
     return { _id: 'mock-mixin-id' };
   }
 }

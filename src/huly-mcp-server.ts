@@ -175,7 +175,7 @@ export class HulyMCPServer {
           const sequence = (incResult as any).object.sequence;
 
           // Get rank for ordering
-          const lastOne = await client.findOne<Issue>(
+          const lastOne = await client.findOne(
             tracker.class.Issue,
             { space: project._id },
             { sort: { rank: SortingOrder.Descending } }
@@ -184,12 +184,12 @@ export class HulyMCPServer {
           // Upload description if provided
           let descriptionRef: any = null;
           if (description) {
-            descriptionRef = await client.uploadMarkup(
+            descriptionRef = await createMarkupPolyfill(
+              client,
               tracker.class.Issue, 
               issueId, 
               'description', 
-              description, 
-              'markdown'
+              description
             );
           }
 
@@ -1620,7 +1620,7 @@ export class HulyMCPServer {
             tracker.class.Issue,
             issue.space,
             issue._id,
-            { parents: [createIssueParentInfo(epic._id, epic.identifier || 'EPIC', epic.title || epic.name || 'Epic', epic.space)] } as ExtendedDocumentUpdate
+            { parents: [createIssueParentInfo(epic._id, epic.identifier || 'EPIC', epic.title || 'Epic', epic.space)] } as ExtendedDocumentUpdate
           );
 
           return {

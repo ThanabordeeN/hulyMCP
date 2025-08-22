@@ -26,8 +26,8 @@ export interface PlatformClient {
   getModel?(): any;
   updateCollection?(className: any, space: any, id: any, parentClass: any, field: string, doc: any, docId?: any): Promise<any>;
   removeCollection?(className: any, space: any, id: any, parentClass: any, field: string, docId: any): Promise<void>;
-  createMixin?(objectId: any, _class: any, space: any, doc: any): Promise<any>;
-  updateMixin?(objectId: any, _class: any, space: any, operations: any): Promise<any>;
+  createMixin?(objectId: any, _class: any, space: any, mixin: any, doc?: any): Promise<any>;
+  updateMixin?(objectId: any, _class: any, space: any, mixin: any, operations?: any): Promise<any>;
 }
 
 // Mock ConnectOptions interface
